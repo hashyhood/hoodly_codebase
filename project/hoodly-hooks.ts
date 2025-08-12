@@ -52,7 +52,7 @@ export const useToast = () => {
   return { toast, showToast, hideToast };
 };
 
-// Hook for managing real-time subscriptions (generic)
+// Hook for managing real-time subscriptions (generic) - DEPRECATED: Use scoped hooks instead
 export const useRealtimeSubscription = (channel: string, event: string, callback: (payload: any) => void) => {
   const { user } = useAuth();
   const subscriptionRef = useRef<any>(null);
@@ -62,7 +62,10 @@ export const useRealtimeSubscription = (channel: string, event: string, callback
 
     const subscription = supabase
       .channel(channel)
-      .on('postgres_changes', { event: '*', schema: 'public' }, callback)
+      .on('postgres_changes', { 
+        event: event as 'INSERT' | 'UPDATE' | 'DELETE', 
+        schema: 'public' 
+      }, callback)
       .subscribe();
 
     subscriptionRef.current = subscription;
@@ -218,6 +221,36 @@ export const useFriendRequestsSubscription = (callback: (payload: any) => void) 
         schema: 'public', 
         table: 'friend_requests', 
         filter: `to_user_id=eq.${user.id}` 
+      }, callback)
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, callback]);
+
+  return subscriptionRef.current;
+};
+
+// Hook specifically for direct messages (scoped and secure)
+export const useDirectMessagesSubscription = (callback: (payload: any) => void) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel(`direct_messages:${user.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'private_messages', 
+        filter: `or(sender_id=eq.${user.id},receiver_id=eq.${user.id})` 
       }, callback)
       .subscribe();
 
