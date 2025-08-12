@@ -107,42 +107,44 @@ export const postsApi = {
     }
   },
 
-  // Toggle like for a post (using likes table)
-  async toggleLike(postId: string, userId: string) {
+  // Toggle like for a post (using reactions table)
+  async toggleLike(postId: string) {
     try {
-      // Check if user already liked the post
-      const { data: existingLike, error: checkError } = await supabase
-        .from('likes')
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      // Check if reaction exists
+      const { data: existing, error: checkError } = await supabase
+        .from('reactions')
         .select('id')
-        .eq('post_id', postId)
-        .eq('user_id', userId)
+        .eq('target_type', 'post')
+        .eq('target_id', postId)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (checkError && checkError.code && checkError.code !== 'PGRST116') {
         throw checkError;
       }
 
-      if (existingLike) {
-        // Unlike
+      if (existing) {
         const { error: deleteError } = await supabase
-          .from('likes')
+          .from('reactions')
           .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
+          .eq('id', existing.id);
         if (deleteError) throw deleteError;
       } else {
-        // Like
         const { error: insertError } = await supabase
-          .from('likes')
-          .insert({ post_id: postId, user_id: userId });
+          .from('reactions')
+          .insert({ target_type: 'post', target_id: postId, user_id: user.id, reaction_type: 'like' });
         if (insertError) throw insertError;
       }
 
       // Recalculate likes_count and update post
       const { count, error: countError } = await supabase
-        .from('likes')
+        .from('reactions')
         .select('id', { count: 'exact', head: true })
-        .eq('post_id', postId);
+        .eq('target_type', 'post')
+        .eq('target_id', postId);
       if (countError) throw countError;
 
       const { error: updateError } = await supabase
@@ -151,7 +153,7 @@ export const postsApi = {
         .eq('id', postId);
       if (updateError) throw updateError;
 
-      return { liked: !existingLike };
+      return { liked: !existing };
     } catch (error: any) {
       throw error;
     }
@@ -167,19 +169,33 @@ export const postsApi = {
   },
 
   // Add a comment to a post
-  async addComment(postId: string, text: string, userId: string) {
-    return supabase
-      .from('comments')
-      .insert({ post_id: postId, content: text, user_id: userId });
+  async addComment(postId: string, text: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      return supabase
+        .from('comments')
+        .insert({ post_id: postId, content: text, user_id: user.id });
+    } catch (error: any) {
+      throw error;
+    }
   },
 
   // Delete a comment (only if user is owner)
-  async deleteComment(commentId: string, userId: string) {
-    return supabase
-      .from('comments')
-      .delete()
-      .eq('id', commentId)
-      .eq('user_id', userId);
+  async deleteComment(commentId: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      return supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', user.id);
+    } catch (error: any) {
+      throw error;
+    }
   },
 
   // Subscribe to real-time post updates
@@ -488,14 +504,15 @@ export const notificationsApi = {
     }
   },
 
-  // Get notifications for a user (most recent first)
-  getNotifications: async (userId: string): Promise<ApiResponse<Notification[]>> => {
+  // Get notifications for a user (most recent first) with pagination
+  getNotifications: async (userId: string, limit = 20, from = 0): Promise<ApiResponse<Notification[]>> => {
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('receiver_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
       if (error) throw error;
       return { data, error: null, success: true };
     } catch (error: any) {
@@ -521,13 +538,16 @@ export const notificationsApi = {
     }
   },
 
-  // Mark all notifications as read for a user
-  markAllAsRead: async (userId: string): Promise<ApiResponse<boolean>> => {
+  // Mark all notifications as read for the authenticated user
+  markAllAsRead: async (): Promise<ApiResponse<boolean>> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('receiver_id', userId)
+        .eq('receiver_id', user.id)
         .eq('is_read', false);
       if (error) throw error;
       return { data: true, error: null, success: true };
