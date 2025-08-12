@@ -67,12 +67,28 @@ export default function NotificationsTab() {
     try {
       setLoading(true);
       setRefreshing(refresh);
-      const { data, error } = await notificationsApi.getNotifications(user.id);
+      
+      const currentPage = refresh ? 0 : page;
+      const from = currentPage * pageSize;
+      
+      const { data, error } = await notificationsApi.getNotifications(user.id, pageSize, from);
       if (error) throw new Error(error);
+      
       // Cast the data to the correct type
-      setNotifications((data as NotificationWithUser[]) || []);
-      setHasMore((data || []).length === pageSize);
-      setPage(refresh ? 1 : page + 1);
+      const newNotifications = (data as NotificationWithUser[]) || [];
+      
+      if (refresh) {
+        // Replace all notifications on refresh
+        setNotifications(newNotifications);
+        setPage(1);
+      } else {
+        // Append new notifications for pagination
+        setNotifications(prev => [...prev, ...newNotifications]);
+        setPage(prev => prev + 1);
+      }
+      
+      // Check if there are more notifications to load
+      setHasMore(newNotifications.length === pageSize);
     } catch (error) {
       logger.error('Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
@@ -80,7 +96,7 @@ export default function NotificationsTab() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, page, pageSize]);
 
   // Load unread count
   const loadUnreadCount = useCallback(async () => {
@@ -137,6 +153,13 @@ export default function NotificationsTab() {
     loadNotifications(true);
     loadUnreadCount();
   }, [loadNotifications, loadUnreadCount]);
+
+  // Load more notifications
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore && user) {
+      loadNotifications(false);
+    }
+  }, [loading, hasMore, loadNotifications, user]);
 
   // Render notification item
   const renderNotification = ({ item }: { item: NotificationWithUser }) => (
@@ -198,8 +221,19 @@ export default function NotificationsTab() {
             tintColor={getColor('success')}
           />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.1}
         ListEmptyComponent={renderEmpty}
-        ListHeaderComponent={notifications.length > 0 ? undefined : undefined}
+        ListFooterComponent={
+          hasMore && notifications.length > 0 ? (
+            <View style={styles.loadingMore}>
+              <Spinner size="small" />
+              <Text style={[styles.loadingMoreText, { color: getColor('textSecondary') }]}>
+                Loading more...
+              </Text>
+            </View>
+          ) : null
+        }
       />
 
       {/* Quick Actions */}
@@ -314,5 +348,16 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  loadingMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 12,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

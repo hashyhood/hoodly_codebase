@@ -143,6 +143,96 @@ export const useRoomMessagesSubscription = (roomId: string, callback: (payload: 
   return subscriptionRef.current;
 };
 
+// Hook specifically for user notifications (scoped and secure)
+export const useNotificationsSubscription = (callback: (payload: any) => void) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel(`notifications:${user.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'notifications', 
+        filter: `receiver_id=eq.${user.id}` 
+      }, callback)
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, callback]);
+
+  return subscriptionRef.current;
+};
+
+// Hook specifically for user posts (scoped and secure)
+export const useUserPostsSubscription = (callback: (payload: any) => void) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel(`posts:${user.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'posts', 
+        filter: `user_id=eq.${user.id}` 
+      }, callback)
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, callback]);
+
+  return subscriptionRef.current;
+};
+
+// Hook specifically for friend requests (scoped and secure)
+export const useFriendRequestsSubscription = (callback: (payload: any) => void) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel(`friend_requests:${user.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'friend_requests', 
+        filter: `to_user_id=eq.${user.id}` 
+      }, callback)
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, callback]);
+
+  return subscriptionRef.current;
+};
+
 // Hook for managing user presence
 export const usePresence = () => {
   const { user } = useAuth();

@@ -95,9 +95,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       for (const imageUri of images) {
         const fileName = `posts/${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
         
-        // Convert image to blob
+        // Convert image to blob & basic validation
         const response = await fetch(imageUri);
         const blob = await response.blob();
+        if (!['image/jpeg','image/png','image/webp'].includes(blob.type) || blob.size > 8_000_000) {
+          throw new Error('Invalid image type/size');
+        }
         
         // Upload to Supabase Storage
         const { data, error } = await supabase.storage
@@ -106,16 +109,39 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
         if (error) throw error;
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('post-images')
-          .getPublicUrl(fileName);
+        // Prefer signed URL for security, fallback to public
+        let imageUrl: string;
+        try {
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('post-images')
+            .createSignedUrl(fileName, 60*60); // 1 hour
+          
+          if (signedUrlError || !signedUrlData?.signedUrl) {
+            // Fallback to public URL if signed URL fails
+            const { data: { publicUrl } } = supabase.storage
+              .from('post-images')
+              .getPublicUrl(fileName);
+            imageUrl = publicUrl;
+          } else {
+            imageUrl = signedUrlData.signedUrl;
+          }
+        } catch (error) {
+          // Fallback to public URL on error
+          const { data: { publicUrl } } = supabase.storage
+            .from('post-images')
+            .getPublicUrl(fileName);
+          imageUrl = publicUrl;
+        }
 
-        uploadedUrls.push(publicUrl);
+        uploadedUrls.push(imageUrl);
       }
     } catch (error) {
       console.error('Error uploading images:', error);
-      Alert.alert('Error', 'Failed to upload images');
+      if (error instanceof Error && error.message === 'Invalid image type/size') {
+        Alert.alert('Invalid Image', 'Please select a valid JPEG, PNG, or WebP image under 8MB');
+      } else {
+        Alert.alert('Error', 'Failed to upload images');
+      }
     } finally {
       setIsUploading(false);
     }
