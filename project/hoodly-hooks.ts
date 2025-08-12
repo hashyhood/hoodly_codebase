@@ -52,7 +52,7 @@ export const useToast = () => {
   return { toast, showToast, hideToast };
 };
 
-// Hook for managing real-time subscriptions
+// Hook for managing real-time subscriptions (generic)
 export const useRealtimeSubscription = (channel: string, event: string, callback: (payload: any) => void) => {
   const { user } = useAuth();
   const subscriptionRef = useRef<any>(null);
@@ -73,6 +73,72 @@ export const useRealtimeSubscription = (channel: string, event: string, callback
       }
     };
   }, [user, channel, event, callback]);
+
+  return subscriptionRef.current;
+};
+
+// Hook for scoped real-time subscriptions (more secure)
+export const useScopedRealtimeSubscription = (
+  channel: string, 
+  table: string, 
+  event: 'INSERT' | 'UPDATE' | 'DELETE' | '*',
+  filter?: string,
+  callback?: (payload: any) => void
+) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel(channel)
+      .on('postgres_changes', { 
+        event, 
+        schema: 'public', 
+        table,
+        ...(filter && { filter })
+      }, callback || (() => {}))
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, channel, table, event, filter, callback]);
+
+  return subscriptionRef.current;
+};
+
+// Hook specifically for room messages (scoped and secure)
+export const useRoomMessagesSubscription = (roomId: string, callback: (payload: any) => void) => {
+  const { user } = useAuth();
+  const subscriptionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user || !roomId) return;
+
+    const subscription = supabase
+      .channel(`messages:${roomId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages', 
+        filter: `room_id=eq.${roomId}` 
+      }, callback)
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [user, roomId, callback]);
 
   return subscriptionRef.current;
 };
