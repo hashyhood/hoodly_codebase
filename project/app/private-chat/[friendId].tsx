@@ -9,21 +9,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send, Mic, MoreVertical, User, ChevronDown } from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 import { privateMessagesApi, userApi } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import websocketManager from '../../lib/websocket';
+import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/supabase';
 import type { User as DBUser, PrivateMessage as DBPrivateMessage } from '../../types';
 import { format } from 'date-fns';
+import { CONFIG } from '../../lib/config';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type User = DBUser & { last_seen?: string };
@@ -32,9 +33,7 @@ type PrivateMessage = DBPrivateMessage & { is_read?: boolean };
 const { width } = Dimensions.get('window');
 
 export default function PrivateChatScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const socket = websocketManager;
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const [messages, setMessages] = useState<PrivateMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -77,23 +76,52 @@ export default function PrivateChatScreen() {
       loadChatData();
       
       // Subscribe to real-time updates for private messages
-      const subscription = privateMessagesApi.subscribeToPrivateMessages(user.id, (payload: any) => {
-        if (payload.eventType === 'INSERT') {
-          const newMessage = payload.new as PrivateMessage;
-          if (newMessage.sender_id === friendId || newMessage.receiver_id === friendId) {
-            setMessages(prev => [...prev, newMessage]);
-            // Auto-scroll to bottom for new messages
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+      const subscription = supabase
+        .channel(`private_messages:${user.id}:${friendId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'private_messages',
+            filter: `sender_id=eq.${user.id},receiver_id=eq.${friendId} OR sender_id=eq.${friendId},receiver_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const newMessage = payload.new as PrivateMessage;
+            if (newMessage.sender_id === friendId || newMessage.receiver_id === friendId) {
+              setMessages(prev => [...prev, newMessage]);
+              // Auto-scroll to bottom for new messages
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, CONFIG.TIMEOUTS.AUTO_SCROLL_DELAY);
+            }
           }
-        } else if (payload.eventType === 'UPDATE') {
+        )
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'private_messages',
+          filter: `id=eq.${friendId}`,
+        }, (payload) => {
           const updatedMessage = payload.new as PrivateMessage;
           setMessages(prev => prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg));
-        }
-      });
+        })
+        .subscribe();
 
       subscriptionRef.current = subscription;
+
+      // Add error handling for subscription
+      if (subscriptionRef.current) {
+        subscriptionRef.current.on('error', (error: any) => {
+          console.error('Private chat subscription error:', error);
+          // Attempt to reconnect after a delay
+          setTimeout(() => {
+            if (friendId && user) {
+              loadChatData();
+            }
+          }, CONFIG.TIMEOUTS.RECONNECTION_DELAY);
+        });
+      }
 
       return () => {
         if (subscriptionRef.current) {
@@ -113,7 +141,7 @@ export default function PrivateChatScreen() {
     // Set new timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-    }, 1000) as any;
+    }, CONFIG.TIMEOUTS.TYPING_INDICATOR) as any;
   };
 
   const sendMessage = async () => {
@@ -129,7 +157,7 @@ export default function PrivateChatScreen() {
       // Scroll to bottom after sending
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, CONFIG.TIMEOUTS.AUTO_SCROLL_DELAY);
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message.');
@@ -189,14 +217,14 @@ export default function PrivateChatScreen() {
         <View style={[
           styles.messageBubble,
           isMyMessage 
-            ? { backgroundColor: theme.colors.neural.primary }
-            : { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }
+            ? { backgroundColor: getColor('success') }
+            : { backgroundColor: getColor('surface'), borderColor: getColor('divider') }
         ]}>
           <Text style={[
             styles.messageText,
             isMyMessage 
-              ? { color: theme.colors.text.inverse }
-              : { color: theme.colors.text.primary }
+              ? { color: getColor('textPrimary') }
+              : { color: getColor('textPrimary') }
           ]}>
             {item.content}
           </Text>
@@ -204,13 +232,13 @@ export default function PrivateChatScreen() {
             <Text style={[
               styles.messageTime,
               isMyMessage 
-                ? { color: theme.colors.text.inverse }
-                : { color: theme.colors.text.tertiary }
+                ? { color: getColor('textPrimary') }
+                : { color: getColor('textTertiary') }
             ]}>
               {messageTime}
             </Text>
             {isMyMessage && (
-              <Text style={[styles.readStatus, { color: theme.colors.text.inverse }]}>
+              <Text style={[styles.readStatus, { color: getColor('textPrimary') }]}>
                 {item.is_read ? '✓✓' : '✓'}
               </Text>
             )}
@@ -228,8 +256,8 @@ export default function PrivateChatScreen() {
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>👤</Text>
         </View>
-        <View style={[styles.typingBubble, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-          <Text style={[styles.typingText, { color: theme.colors.text.tertiary }]}>
+        <View style={[styles.typingBubble, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+          <Text style={[styles.typingText, { color: getColor('textTertiary') }]}>
             Friend is typing...
           </Text>
         </View>
@@ -239,17 +267,13 @@ export default function PrivateChatScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
-        <LinearGradient
-          colors={theme.colors.gradients.neural as [string, string]}
-          style={styles.backgroundGradient}
-          pointerEvents="none"
-        />
+      <View style={[styles.container, { backgroundColor: getColor('bg') }]}> 
+        <BlurView intensity={30} style={[styles.backgroundGradient, { opacity: 0.1 }]} />
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.text.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
-              Loading chat...
+            <ActivityIndicator size="large" color={getColor('textPrimary')} />
+            <Text style={[styles.loadingText, { color: getColor('textSecondary') }]}> 
+              Loading messages...
             </Text>
           </View>
         </SafeAreaView>
@@ -259,22 +283,18 @@ export default function PrivateChatScreen() {
 
   if (!friend) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
-        <LinearGradient
-          colors={theme.colors.gradients.neural as [string, string]}
-          style={styles.backgroundGradient}
-          pointerEvents="none"
-        />
+      <View style={[styles.container, { backgroundColor: getColor('bg') }]}> 
+        <BlurView intensity={30} style={[styles.backgroundGradient, { opacity: 0.1 }]} />
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: theme.colors.text.primary }]}>
+            <Text style={[styles.errorText, { color: getColor('textPrimary') }]}> 
               Friend not found
             </Text>
             <TouchableOpacity
-              style={[styles.backButton, { backgroundColor: theme.colors.glass.primary }]}
+              style={[styles.backButton, { backgroundColor: getColor('surface') }]}
               onPress={() => router.back()}
             >
-              <Text style={[styles.backButtonText, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.backButtonText, { color: getColor('textPrimary') }]}> 
                 Go Back
               </Text>
             </TouchableOpacity>
@@ -285,34 +305,35 @@ export default function PrivateChatScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
-      <LinearGradient
-        colors={theme.colors.gradients.neural as [string, string]}
-        style={styles.backgroundGradient}
-        pointerEvents="none"
-      />
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}> 
+      <BlurView intensity={30} style={[styles.backgroundGradient, { opacity: 0.1 }]} />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <ArrowLeft color={theme.colors.text.primary} size={24} />
+        <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}> 
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+            <Ionicons name="arrow-back" size={24} color={getColor('textPrimary')} />
           </TouchableOpacity>
           
           <View style={styles.headerInfo}>
-            <Text style={styles.friendAvatar}>{friend.avatar_url || '👤'}</Text>
+            <View style={[styles.friendAvatar, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+              <Ionicons name="person" size={24} color={getColor('textSecondary')} />
+            </View>
             <View style={styles.friendDetails}>
-              <Text style={[styles.friendName, { color: theme.colors.text.primary }]}>
-                {friend.full_name}
+              <Text style={[styles.friendName, { color: getColor('textPrimary') }]}> 
+                {friend?.full_name || 'Unknown User'}
               </Text>
-              <Text style={[styles.friendStatus, { color: theme.colors.text.secondary }]}>
-                {friend.last_seen ? '🟢 Online' : '⚪ Offline'}
-              </Text>
+              <View style={styles.connectionStatus}>
+                <View style={[styles.statusIndicator, { backgroundColor: getColor('textTertiary') }]} />
+                <Text style={[styles.friendStatus, { color: getColor('textSecondary') }]}>
+                  Offline
+                </Text>
+              </View>
             </View>
           </View>
           
-          <TouchableOpacity style={[styles.moreButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <MoreVertical color={theme.colors.text.primary} size={24} />
+          <TouchableOpacity style={[styles.moreButton, { backgroundColor: getColor('surface') }]}> 
+            <Ionicons name="ellipsis-vertical" size={24} color={getColor('textPrimary')} />
           </TouchableOpacity>
         </BlurView>
 
@@ -330,7 +351,7 @@ export default function PrivateChatScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { color: theme.colors.text.tertiary }]}>Start a conversation with {friend?.full_name}!</Text>
+            <Text style={[styles.emptyText, { color: getColor('textSecondary') }]}>No messages yet. Start the conversation!</Text>
               </View>
             }
           />
@@ -338,42 +359,52 @@ export default function PrivateChatScreen() {
           {/* Typing Indicator */}
           {isTyping && (
             <View style={styles.typingContainer}>
-              <Text style={[styles.typingText, { color: theme.colors.text.secondary }]}>
-                {friend.full_name} is typing...
+              <Text style={[styles.typingText, { color: getColor('textSecondary') }]}> 
+                {friend?.full_name || 'Unknown User'} is typing...
               </Text>
             </View>
           )}
 
           {/* Message Input */}
-          <BlurView intensity={30} style={[styles.inputContainer, { borderTopColor: theme.colors.glass.border }]}>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
+          <BlurView intensity={30} style={[styles.inputContainer, { borderTopColor: getColor('divider') }]}> 
+            <View style={[styles.inputWrapper, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}> 
               <TouchableOpacity style={styles.voiceButton}>
-                <Mic color={theme.colors.text.secondary} size={20} />
+                <Ionicons name="mic" size={20} color={getColor('textSecondary')} />
               </TouchableOpacity>
               
               <TextInput
-                style={[styles.textInput, { color: theme.colors.text.primary }]}
+                style={[styles.textInput, { color: getColor('textPrimary') }]}
                 placeholder="Type a message..."
-                placeholderTextColor={theme.colors.text.tertiary}
+                placeholderTextColor={getColor('textTertiary')}
                 value={newMessage}
                 onChangeText={setNewMessage}
                 multiline
                 maxLength={1000}
                 editable={!isSending}
+                onSubmitEditing={sendMessage}
               />
               
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  newMessage.trim() && !isSending ? { backgroundColor: theme.colors.neural.primary } : { backgroundColor: theme.colors.glass.secondary }
+                  newMessage.trim() && !isSending ? { backgroundColor: getColor('success') } : { backgroundColor: getColor('surface') }
                 ]}
                 onPress={sendMessage}
                 disabled={!newMessage.trim() || isSending}
               >
                 {isSending ? (
-                  <ActivityIndicator size="small" color={theme.colors.text.inverse} />
+                  <ActivityIndicator size="small" color={getColor('textPrimary')} />
                 ) : (
-                  <Send color={newMessage.trim() && !isSending ? theme.colors.text.inverse : theme.colors.text.secondary} size={20} />
+                  <LinearGradient
+                    colors={newMessage.trim() && !isSending ? theme.gradients.primary : ['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
+                    style={styles.sendButtonGradient}
+                  >
+                    <Ionicons 
+                      name="send" 
+                      size={20} 
+                      color={newMessage.trim() && !isSending ? "#fff" : getColor('textTertiary')} 
+                    />
+                  </LinearGradient>
                 )}
               </TouchableOpacity>
             </View>
@@ -441,8 +472,14 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   friendAvatar: {
-    fontSize: 32,
-    marginRight: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    borderWidth: 1,
   },
   friendDetails: {
     flex: 1,
@@ -553,6 +590,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
+  sendButtonGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatarContainer: {
     width: 32,
     height: 32,
@@ -571,5 +615,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
   },
 }); 

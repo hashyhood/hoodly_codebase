@@ -49,78 +49,19 @@ const BUSINESS_CATEGORIES = [
   { id: 'services', label: 'Services', icon: '🔧', color: '#059669' },
 ];
 
-const SAMPLE_BUSINESSES: Business[] = [
-  {
-    id: '1',
-    name: 'Café Luna',
-    category: 'food',
-    rating: 4.8,
-    reviewCount: 127,
-    distance: '0.2 miles',
-    address: '123 Main St, Downtown',
-    phone: '(555) 123-4567',
-    website: 'cafeluna.com',
-    hours: '7:00 AM - 8:00 PM',
-    isOpen: true,
-    tags: ['Coffee', 'Breakfast', 'WiFi'],
-    description: 'Cozy café serving artisanal coffee and fresh pastries.',
-  },
-  {
-    id: '2',
-    name: 'Tech Hub Co-working',
-    category: 'services',
-    rating: 4.6,
-    reviewCount: 89,
-    distance: '0.5 miles',
-    address: '456 Innovation Ave',
-    phone: '(555) 987-6543',
-    website: 'techhub.com',
-    hours: '24/7',
-    isOpen: true,
-    tags: ['Co-working', 'Meeting Rooms', 'Events'],
-    description: 'Modern co-working space for entrepreneurs and remote workers.',
-  },
-  {
-    id: '3',
-    name: 'Green Market',
-    category: 'shopping',
-    rating: 4.9,
-    reviewCount: 203,
-    distance: '0.8 miles',
-    address: '789 Market St',
-    phone: '(555) 456-7890',
-    hours: '8:00 AM - 6:00 PM',
-    isOpen: true,
-    tags: ['Organic', 'Local', 'Fresh'],
-    description: 'Farm-to-table grocery store with local produce.',
-  },
-  {
-    id: '4',
-    name: 'Zen Spa & Wellness',
-    category: 'health',
-    rating: 4.7,
-    reviewCount: 156,
-    distance: '1.2 miles',
-    address: '321 Wellness Blvd',
-    phone: '(555) 789-0123',
-    hours: '9:00 AM - 7:00 PM',
-    isOpen: false,
-    tags: ['Spa', 'Massage', 'Wellness'],
-    description: 'Luxury spa offering massage therapy and wellness treatments.',
-  },
-];
+  // Businesses will be loaded from Supabase
 
 export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
   isVisible,
   onClose,
   onBusinessSelect,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState<'rating' | 'distance' | 'name'>('rating');
   const [showFilters, setShowFilters] = useState(false);
-  const [filteredBusinesses, setFilteredBusinesses] = useState(SAMPLE_BUSINESSES);
+  const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([]);
   
   const slideAnimation = useRef(new Animated.Value(height)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
@@ -163,7 +104,7 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
   }, [searchQuery, selectedCategory, sortBy]);
 
   const filterBusinesses = () => {
-    let filtered = SAMPLE_BUSINESSES;
+    let filtered: Business[] = [];
 
     // Filter by category
     if (selectedCategory !== 'all') {
@@ -217,48 +158,48 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
 
   const renderBusinessCard = ({ item }: { item: Business }) => (
     <TouchableOpacity
-      style={[styles.businessCard, { backgroundColor: theme.colors.glass.primary }]}
+      style={[styles.businessCard, { backgroundColor: colors.glass.primary }]}
       onPress={() => onBusinessSelect(item)}
       activeOpacity={0.7}
     >
       <View style={styles.businessHeader}>
         <View style={styles.businessInfo}>
-          <Text style={[styles.businessName, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.businessName, { color: colors.text.primary }]}>
             {item.name}
           </Text>
-          <Text style={[styles.businessCategory, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.businessCategory, { color: colors.text.secondary }]}>
             {BUSINESS_CATEGORIES.find(cat => cat.id === item.category)?.label}
           </Text>
         </View>
         <View style={styles.businessRating}>
           <Text style={styles.stars}>{renderStars(item.rating)}</Text>
-          <Text style={[styles.ratingText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.ratingText, { color: colors.text.secondary }]}>
             {item.rating} ({item.reviewCount})
           </Text>
         </View>
       </View>
 
-      <Text style={[styles.businessDescription, { color: theme.colors.text.secondary }]}>
+      <Text style={[styles.businessDescription, { color: colors.text.secondary }]}>
         {item.description}
       </Text>
 
       <View style={styles.businessDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailIcon}>📍</Text>
-          <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.detailText, { color: colors.text.secondary }]}>
             {item.distance} • {item.address}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailIcon}>🕐</Text>
-          <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.detailText, { color: colors.text.secondary }]}>
             {item.hours}
           </Text>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: item.isOpen ? theme.colors.status.success : theme.colors.status.error }
+            { backgroundColor: item.isOpen ? colors.status.success : colors.status.error }
           ]}>
-            <Text style={[styles.statusText, { color: theme.colors.text.inverse }]}>
+            <Text style={[styles.statusText, { color: colors.text.inverse }]}>
               {item.isOpen ? 'Open' : 'Closed'}
             </Text>
           </View>
@@ -267,8 +208,8 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
 
       <View style={styles.tagsContainer}>
         {item.tags.slice(0, 3).map((tag, index) => (
-          <View key={index} style={[styles.tagChip, { backgroundColor: theme.colors.glass.secondary }]}>
-            <Text style={[styles.tagText, { color: theme.colors.text.secondary }]}>
+          <View key={index} style={[styles.tagChip, { backgroundColor: colors.glass.secondary }]}>
+            <Text style={[styles.tagText, { color: colors.text.secondary }]}>
               {tag}
             </Text>
           </View>
@@ -291,32 +232,32 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
               styles.modalContainer,
               {
                 transform: [{ translateY: slideAnimation }],
-                backgroundColor: theme.colors.neural.background,
+                backgroundColor: colors.neural.background,
               },
             ]}
           >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+                <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
                 Local Businesses
               </Text>
               <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={styles.filterButton}>
-                <Text style={[styles.filterIcon, { color: theme.colors.text.primary }]}>⚙️</Text>
+                <Text style={[styles.filterIcon, { color: colors.text.primary }]}>⚙️</Text>
               </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
-            <View style={[styles.searchContainer, { backgroundColor: theme.colors.glass.primary }]}>
+            <View style={[styles.searchContainer, { backgroundColor: colors.glass.primary }]}>
               <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
-                style={[styles.searchInput, { color: theme.colors.text.primary }]}
+                style={[styles.searchInput, { color: colors.text.primary }]}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search businesses..."
-                placeholderTextColor={theme.colors.text.tertiary}
+                placeholderTextColor={colors.text.tertiary}
               />
             </View>
 
@@ -331,7 +272,7 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
                   key={category.id}
                   style={[
                     styles.categoryChip,
-                    { backgroundColor: theme.colors.glass.primary },
+                    { backgroundColor: colors.glass.primary },
                     selectedCategory === category.id && {
                       backgroundColor: category.color,
                     },
@@ -343,8 +284,8 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
                   <Text
                     style={[
                       styles.categoryLabel,
-                      { color: theme.colors.text.primary },
-                      selectedCategory === category.id && { color: theme.colors.text.inverse },
+                      { color: colors.text.primary },
+                      selectedCategory === category.id && { color: colors.text.inverse },
                     ]}
                   >
                     {category.label}
@@ -355,8 +296,8 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
 
             {/* Filters Panel */}
             {showFilters && (
-              <View style={[styles.filtersPanel, { backgroundColor: theme.colors.glass.primary }]}>
-                <Text style={[styles.filtersTitle, { color: theme.colors.text.primary }]}>
+              <View style={[styles.filtersPanel, { backgroundColor: colors.glass.primary }]}>
+                <Text style={[styles.filtersTitle, { color: colors.text.primary }]}>
                   Sort by
                 </Text>
                 <View style={styles.sortOptions}>
@@ -370,7 +311,7 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
                       style={[
                         styles.sortOption,
                         sortBy === option.id && {
-                          backgroundColor: theme.colors.gradients.neural[0],
+                          backgroundColor: colors.neural.primary,
                         },
                       ]}
                       onPress={() => setSortBy(option.id as any)}
@@ -379,8 +320,8 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
                       <Text
                         style={[
                           styles.sortOptionText,
-                          { color: theme.colors.text.primary },
-                          sortBy === option.id && { color: theme.colors.text.inverse },
+                          { color: colors.text.primary },
+                          sortBy === option.id && { color: colors.text.inverse },
                         ]}
                       >
                         {option.label}
@@ -401,10 +342,10 @@ export const BusinessDirectory: React.FC<BusinessDirectoryProps> = ({
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyIcon}>🏪</Text>
-                  <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+                  <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
                     No businesses found
                   </Text>
-                  <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+                  <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                     Try adjusting your search or filters
                   </Text>
                 </View>

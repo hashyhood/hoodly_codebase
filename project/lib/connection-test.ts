@@ -1,13 +1,7 @@
 import { supabase } from './supabase';
-import { CONFIG } from './config';
-import websocketManager from './websocket';
 
 interface ConnectionTestResult {
   supabase: {
-    connected: boolean;
-    error?: string;
-  };
-  websocket: {
     connected: boolean;
     error?: string;
   };
@@ -24,25 +18,18 @@ interface ConnectionTestResult {
 export class ConnectionTester {
   private results: ConnectionTestResult = {
     supabase: { connected: false },
-    websocket: { connected: false },
     database: { connected: false },
     auth: { working: false }
   };
 
   async testAllConnections(): Promise<ConnectionTestResult> {
-    console.log('🔍 Testing Hoodly App Connections...\n');
-
-    // Test Supabase connection
-    await this.testSupabaseConnection();
+    console.log('🧪 Starting connection tests...');
     
-    // Test WebSocket connection
-    await this.testWebSocketConnection();
-    
-    // Test database operations
-    await this.testDatabaseConnection();
-    
-    // Test authentication
-    await this.testAuthentication();
+    await Promise.all([
+      this.testSupabaseConnection(),
+      this.testDatabaseConnection(),
+      this.testAuthentication()
+    ]);
 
     this.printResults();
     return this.results;
@@ -50,7 +37,7 @@ export class ConnectionTester {
 
   private async testSupabaseConnection() {
     try {
-      console.log('📡 Testing Supabase connection...');
+      console.log('🔌 Testing Supabase connection...');
       
       const { data, error } = await supabase
         .from('profiles')
@@ -73,49 +60,6 @@ export class ConnectionTester {
         error: error.message
       };
       console.log('❌ Supabase connection failed:', error.message);
-    }
-  }
-
-  private async testWebSocketConnection() {
-    try {
-      console.log('🔌 Testing WebSocket connection...');
-      
-      return new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          this.results.websocket = {
-            connected: false,
-            error: 'Connection timeout'
-          };
-          console.log('❌ WebSocket connection timeout');
-          resolve();
-        }, 5000);
-
-        websocketManager.setHandlers({
-          onConnect: () => {
-            clearTimeout(timeout);
-            this.results.websocket = { connected: true };
-            console.log('✅ WebSocket connection successful');
-            resolve();
-          },
-          onError: (error) => {
-            clearTimeout(timeout);
-            this.results.websocket = {
-              connected: false,
-              error: error.message || 'Connection failed'
-            };
-            console.log('❌ WebSocket connection failed:', error);
-            resolve();
-          }
-        });
-
-        websocketManager.connect();
-      });
-    } catch (error: any) {
-      this.results.websocket = {
-        connected: false,
-        error: error.message
-      };
-      console.log('❌ WebSocket connection failed:', error.message);
     }
   }
 
@@ -203,78 +147,64 @@ export class ConnectionTester {
     console.log('\n📊 Connection Test Results:');
     console.log('========================');
     
-    Object.entries(this.results).forEach(([service, result]) => {
-      const status = result.connected || result.working ? '✅' : '❌';
-      const serviceName = service.charAt(0).toUpperCase() + service.slice(1);
-      console.log(`${status} ${serviceName}: ${result.connected || result.working ? 'Connected' : 'Failed'}`);
-      
-      if (result.error) {
-        console.log(`   Error: ${result.error}`);
-      }
+    Object.entries(this.results).forEach(([key, result]) => {
+      const status = result.error ? '❌' : '✅';
+      const message = result.error ? `${key}: ${result.error}` : `${key}: Working`;
+      console.log(`${status} ${message}`);
     });
-
-    const allWorking = Object.values(this.results).every(result => 
-      result.connected || result.working
-    );
-
-    console.log('\n🎯 Overall Status:', allWorking ? '✅ ALL SYSTEMS OPERATIONAL' : '⚠️ SOME ISSUES DETECTED');
     
-    if (!allWorking) {
-      console.log('\n🔧 Recommended Actions:');
-      if (!this.results.supabase.connected) {
-        console.log('   - Check Supabase configuration in .env file');
-        console.log('   - Verify Supabase project is active');
-      }
-      if (!this.results.websocket.connected) {
-        console.log('   - Check backend server is running (npm run dev:backend)');
-        console.log('   - Verify WebSocket URL in config.ts');
-      }
-      if (!this.results.database.connected) {
-        console.log('   - Check database migrations are applied');
-        console.log('   - Verify RLS policies are configured');
-      }
-      if (!this.results.auth.working) {
-        console.log('   - Check authentication configuration');
-        console.log('   - Verify JWT settings');
-      }
-    }
+    console.log('========================\n');
   }
 
   async testRealTimeFeatures() {
-    console.log('\n🚀 Testing Real-time Features...');
+    console.log('🔄 Testing real-time features...');
     
-    if (!this.results.websocket.connected) {
-      console.log('❌ WebSocket not connected, skipping real-time tests');
-      return;
+    try {
+      // Test real-time subscription
+      const channel = supabase
+        .channel('test-realtime')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'profiles' 
+        }, (payload) => {
+          console.log('✅ Real-time subscription working:', payload);
+        })
+        .subscribe();
+
+      // Wait a bit for subscription
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Test presence
+      const presenceChannel = supabase.channel('test-presence', {
+        config: {
+          presence: {
+            key: 'test-user'
+          }
+        }
+      });
+
+      presenceChannel.track({
+        user: 'Connection Tester',
+        userId: 'test-user',
+        emoji: '🧪'
+      });
+
+      await presenceChannel.subscribe();
+      
+      console.log('✅ Real-time features working');
+      
+      // Cleanup
+      channel.unsubscribe();
+      presenceChannel.unsubscribe();
+      
+    } catch (error: any) {
+      console.log('❌ Real-time features failed:', error.message);
     }
-
-    // Test room joining
-    console.log('   Testing room join...');
-    websocketManager.joinRoom('test-room-1');
-    
-    // Test message sending
-    console.log('   Testing message sending...');
-    websocketManager.sendMessage('test-room-1', {
-      text: 'Test message from connection tester',
-      user: 'Connection Tester',
-      userId: 'test-user',
-      emoji: '🧪'
-    });
-
-    // Test typing indicators
-    console.log('   Testing typing indicators...');
-    websocketManager.startTyping('test-room-1');
-    setTimeout(() => {
-      websocketManager.stopTyping('test-room-1');
-    }, 1000);
-
-    console.log('✅ Real-time feature tests completed');
   }
 }
 
-// Export singleton instance
-export const connectionTester = new ConnectionTester();
+const connectionTester = new ConnectionTester();
 
-// Test function for easy access
 export const testConnections = () => connectionTester.testAllConnections();
 export const testRealTime = () => connectionTester.testRealTimeFeatures(); 

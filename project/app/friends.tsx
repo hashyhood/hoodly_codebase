@@ -13,10 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Users, MessageCircle, UserMinus, User, UserPlus, Check } from 'lucide-react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/config';
+import { friendsApi } from '../lib/api';
 
 interface Friend {
   id: string;
@@ -32,7 +34,6 @@ interface Friend {
 }
 
 export default function FriendsScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,13 +43,20 @@ export default function FriendsScreen() {
 
   const loadFriends = async () => {
     try {
-      const response = await fetch('http://localhost:5002/api/users/friends');
-      const data = await response.json();
+      const result = await friendsApi.getFriends();
       
-      if (data.success) {
+      if (result.success && result.data) {
         // Add follow status to each friend
-        const friendsWithStatus = data.friends.map((friend: Friend) => ({
-          ...friend,
+        const friendsWithStatus = result.data.map((friend: any) => ({
+          id: friend.id,
+          personalName: friend.full_name || friend.personalName || 'Unknown',
+          username: friend.username || 'unknown',
+          bio: friend.bio || '',
+          location: friend.location || friend.neighborhood || '',
+          interests: friend.interests || [],
+          avatar: friend.avatar_url || friend.avatar || '👤',
+          isOnline: friend.is_online || false,
+          lastSeen: friend.last_seen || friend.last_active || '',
           followStatus: 'following' as const // They're already friends
         }));
         setFriends(friendsWithStatus);
@@ -135,6 +143,9 @@ export default function FriendsScreen() {
     } catch (error) {
       console.error('Follow toggle error:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
+      
+      // Reload friends to sync with server state
+      loadFriends();
     } finally {
       setProcessingFollow(null);
     }
@@ -153,24 +164,14 @@ export default function FriendsScreen() {
             setProcessingUnfriend(friendId);
             
             try {
-              const response = await fetch(`http://localhost:5002/api/users/unfriend`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  friendId,
-                }),
-              });
-
-              const data = await response.json();
-
-              if (data.success) {
+              const result = await friendsApi.removeFriend(friendId);
+              
+              if (result.success) {
                 // Remove the friend from the list
                 setFriends(prev => prev.filter(friend => friend.id !== friendId));
                 Alert.alert('Success', `${friendName} has been removed from your friends.`);
               } else {
-                Alert.alert('Error', data.error || 'Something went wrong.');
+                Alert.alert('Error', 'Something went wrong.');
               }
             } catch (error) {
               Alert.alert('Connection Error', 'Please check your connection and try again.');
@@ -189,30 +190,32 @@ export default function FriendsScreen() {
   };
 
   const getFollowButtonContent = (friend: Friend) => {
-    if (processingFollow === friend.id) {
-      return <ActivityIndicator size="small" color={theme.colors.text.inverse} />;
-    }
-
     switch (friend.followStatus) {
       case 'none':
         return (
           <>
-            <UserPlus color={theme.colors.text.inverse} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.inverse }]}>Follow</Text>
+            {processingFollow === friend.id ? (
+              <ActivityIndicator size="small" color={getColor('textPrimary')} />
+            ) : (
+              <>
+                <Ionicons name="person-add" size={16} color={getColor('textPrimary')} />
+                <Text style={[styles.followText, { color: getColor('textPrimary') }]}>Follow</Text>
+              </>
+            )}
           </>
         );
       case 'requested':
         return (
           <>
-            <User color={theme.colors.text.secondary} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.secondary }]}>Requested</Text>
+            <Ionicons name="person" size={16} color={getColor('textSecondary')} />
+            <Text style={[styles.followText, { color: getColor('textSecondary') }]}>Requested</Text>
           </>
         );
       case 'following':
         return (
           <>
-            <Check color={theme.colors.text.inverse} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.inverse }]}>Following</Text>
+            <Ionicons name="checkmark" size={16} color={getColor('textPrimary')} />
+            <Text style={[styles.followText, { color: getColor('textPrimary') }]}>Following</Text>
           </>
         );
       default:
@@ -223,53 +226,53 @@ export default function FriendsScreen() {
   const getFollowButtonStyle = (friend: Friend) => {
     switch (friend.followStatus) {
       case 'none':
-        return { backgroundColor: theme.colors.neural.primary };
+        return { backgroundColor: getColor('success') };
       case 'requested':
-        return { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border };
+        return { backgroundColor: getColor('surface'), borderColor: getColor('divider') };
       case 'following':
-        return { backgroundColor: theme.colors.neural.primary };
+        return { backgroundColor: getColor('success') };
       default:
-        return { backgroundColor: theme.colors.neural.primary };
+        return { backgroundColor: getColor('success') };
     }
   };
 
   const renderFriend = ({ item }: { item: Friend }) => (
-    <View style={[styles.friendCard, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
+    <View style={[styles.friendCard, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
       <View style={styles.friendInfo}>
         <View style={styles.avatarContainer}>
           <Text style={styles.friendAvatar}>{item.avatar}</Text>
           {item.isOnline && (
-            <View style={[styles.onlineIndicator, { backgroundColor: theme.colors.neural.primary }]} />
+            <View style={[styles.onlineIndicator, { backgroundColor: getColor('success') }]} />
           )}
         </View>
         <View style={styles.friendDetails}>
-          <Text style={[styles.friendName, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.friendName, { color: getColor('textPrimary') }]}>
             {item.personalName}
           </Text>
-          <Text style={[styles.friendUsername, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.friendUsername, { color: getColor('textSecondary') }]}>
             @{item.username}
           </Text>
           {item.bio && (
-            <Text style={[styles.friendBio, { color: theme.colors.text.tertiary }]} numberOfLines={2}>
+            <Text style={[styles.friendBio, { color: getColor('textTertiary') }]} numberOfLines={2}>
               {item.bio}
             </Text>
           )}
           {item.location && (
-            <Text style={[styles.friendLocation, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.friendLocation, { color: getColor('textTertiary') }]}>
               📍 {item.location}
             </Text>
           )}
           {item.interests.length > 0 && (
             <View style={styles.interestsContainer}>
               {item.interests.slice(0, 3).map((interest) => (
-                <View key={interest} style={[styles.interestChip, { backgroundColor: theme.colors.glass.secondary }]}>
-                  <Text style={[styles.interestText, { color: theme.colors.text.primary }]}>
+                <View key={interest} style={[styles.interestChip, { backgroundColor: getColor('surface') }]}>
+                  <Text style={[styles.interestText, { color: getColor('textPrimary') }]}>
                     {interest}
                   </Text>
                 </View>
               ))}
               {item.interests.length > 3 && (
-                <Text style={[styles.moreInterests, { color: theme.colors.text.tertiary }]}>
+                <Text style={[styles.moreInterests, { color: getColor('textTertiary') }]}>
                   +{item.interests.length - 3} more
                 </Text>
               )}
@@ -280,7 +283,7 @@ export default function FriendsScreen() {
 
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={[styles.messageButton, { backgroundColor: theme.colors.neural.primary }]}
+          style={[styles.messageButton, { backgroundColor: getColor('success') }]}
           onPress={() => {
             router.push({
               pathname: '/private-chat/[friendId]',
@@ -288,8 +291,8 @@ export default function FriendsScreen() {
             });
           }}
         >
-          <MessageCircle color={theme.colors.text.inverse} size={16} />
-          <Text style={[styles.messageText, { color: theme.colors.text.inverse }]}>Message</Text>
+          <Ionicons name="chatbubble" size={16} color={getColor('textPrimary')} />
+          <Text style={[styles.messageText, { color: getColor('textPrimary') }]}>Message</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -302,16 +305,16 @@ export default function FriendsScreen() {
         
         {item.followStatus === 'following' && (
           <TouchableOpacity
-            style={[styles.unfriendButton, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}
+            style={[styles.unfriendButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
             onPress={() => handleUnfriend(item.id, item.personalName)}
             disabled={processingUnfriend === item.id}
           >
             {processingUnfriend === item.id ? (
-              <ActivityIndicator size="small" color={theme.colors.text.secondary} />
+              <ActivityIndicator size="small" color={getColor('textSecondary')} />
             ) : (
               <>
-                <UserMinus color={theme.colors.text.secondary} size={16} />
-                <Text style={[styles.unfriendText, { color: theme.colors.text.secondary }]}>Remove</Text>
+                <Ionicons name="person-remove" size={16} color={getColor('textSecondary')} />
+                <Text style={[styles.unfriendText, { color: getColor('textSecondary') }]}>Remove</Text>
               </>
             )}
           </TouchableOpacity>
@@ -322,23 +325,23 @@ export default function FriendsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+      <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
         <LinearGradient
-          colors={theme.colors.gradients.neural as [string, string]}
+          colors={theme.gradients.primary}
           style={styles.backgroundGradient}
           pointerEvents="none"
         />
         <SafeAreaView style={styles.safeArea}>
-          <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-              <ArrowLeft color={theme.colors.text.primary} size={24} />
+          <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+              <Ionicons name="arrow-back" size={24} color={getColor('textPrimary')} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>My Friends</Text>
+            <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>My Friends</Text>
             <View style={styles.headerSpacer} />
           </BlurView>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.text.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>Loading friends...</Text>
+            <ActivityIndicator size="large" color={getColor('textPrimary')} />
+            <Text style={[styles.loadingText, { color: getColor('textSecondary') }]}>Loading friends...</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -346,26 +349,26 @@ export default function FriendsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <LinearGradient
-        colors={theme.colors.gradients.neural as [string, string]}
+        colors={theme.gradients.primary}
         style={styles.backgroundGradient}
         pointerEvents="none"
       />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <ArrowLeft color={theme.colors.text.primary} size={24} />
+        <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+            <Ionicons name="arrow-back" size={24} color={getColor('textPrimary')} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>My Friends</Text>
+          <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>My Friends</Text>
           <View style={styles.headerSpacer} />
         </BlurView>
 
         {/* Friends Count */}
         <View style={styles.friendsCount}>
-          <Text style={[styles.countText, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.countText, { color: getColor('textPrimary') }]}>
             {friends.length} {friends.length === 1 ? 'Friend' : 'Friends'}
           </Text>
         </View>
@@ -381,23 +384,23 @@ export default function FriendsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={onRefresh}
-              tintColor={theme.colors.text.primary}
+              tintColor={getColor('textPrimary')}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Users color={theme.colors.text.tertiary} size={48} />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+              <Ionicons name="people" size={48} color={getColor('textTertiary')} />
+              <Text style={[styles.emptyTitle, { color: getColor('textPrimary') }]}>
                 No Friends Yet
               </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.emptySubtitle, { color: getColor('textSecondary') }]}>
                 Start connecting with people to build your friend network
               </Text>
               <TouchableOpacity
-                style={[styles.findPeopleButton, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}
+                style={[styles.findPeopleButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
                 onPress={() => router.push('/search')}
               >
-                <Text style={[styles.findPeopleText, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.findPeopleText, { color: getColor('textPrimary') }]}>
                   Find People to Connect With
                 </Text>
               </TouchableOpacity>

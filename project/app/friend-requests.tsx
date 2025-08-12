@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Check, X, UserPlus, Users } from 'lucide-react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -36,7 +36,6 @@ interface FriendRequest {
 }
 
 export default function FriendRequestsScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,71 +155,60 @@ export default function FriendRequestsScreen() {
   };
 
   const renderFriendRequest = ({ item }: { item: FriendRequest }) => (
-    <View style={[styles.requestCard, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-      <View style={styles.userInfo}>
-        <Text style={styles.userAvatar}>{item.fromUser.avatar}</Text>
-        <View style={styles.userDetails}>
-          <Text style={[styles.userName, { color: theme.colors.text.primary }]}>
+    <View style={[styles.requestCard, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+      <View style={styles.requestInfo}>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.requestAvatar}>
+            {item.fromUser.avatar || item.fromUser.personalName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.requestDetails}>
+          <Text style={[styles.requestName, { color: getColor('textPrimary') }]}>
             {item.fromUser.personalName}
           </Text>
-          <Text style={[styles.userUsername, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.requestUsername, { color: getColor('textSecondary') }]}>
             @{item.fromUser.username}
           </Text>
           {item.fromUser.bio && (
-            <Text style={[styles.userBio, { color: theme.colors.text.tertiary }]} numberOfLines={2}>
+            <Text style={[styles.requestBio, { color: getColor('textTertiary') }]} numberOfLines={2}>
               {item.fromUser.bio}
             </Text>
           )}
           {item.fromUser.location && (
-            <Text style={[styles.userLocation, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.requestLocation, { color: getColor('textTertiary') }]}>
               📍 {item.fromUser.location}
             </Text>
-          )}
-          {item.fromUser.interests.length > 0 && (
-            <View style={styles.interestsContainer}>
-              {item.fromUser.interests.slice(0, 3).map((interest) => (
-                <View key={interest} style={[styles.interestChip, { backgroundColor: theme.colors.glass.secondary }]}>
-                  <Text style={[styles.interestText, { color: theme.colors.text.primary }]}>
-                    {interest}
-                  </Text>
-                </View>
-              ))}
-              {item.fromUser.interests.length > 3 && (
-                <Text style={[styles.moreInterests, { color: theme.colors.text.tertiary }]}>
-                  +{item.fromUser.interests.length - 3} more
-                </Text>
-              )}
-            </View>
           )}
         </View>
       </View>
 
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={[styles.acceptButton, { backgroundColor: theme.colors.neural.primary }]}
+          style={[styles.acceptButton, { backgroundColor: getColor('success') }]}
           onPress={() => handleFriendRequest(item.id, 'accept')}
           disabled={processingRequest === item.id}
         >
           {processingRequest === item.id ? (
-            <ActivityIndicator size="small" color={theme.colors.text.inverse} />
+            <ActivityIndicator size="small" color={getColor('textPrimary')} />
           ) : (
             <>
-              <Check color={theme.colors.text.inverse} size={16} />
-              <Text style={[styles.acceptText, { color: theme.colors.text.inverse }]}>Accept</Text>
+              <Ionicons name="checkmark" size={16} color={getColor('textPrimary')} />
+              <Text style={[styles.acceptText, { color: getColor('textPrimary') }]}>Accept</Text>
             </>
           )}
         </TouchableOpacity>
+        
         <TouchableOpacity
-          style={[styles.rejectButton, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}
+          style={[styles.rejectButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
           onPress={() => handleFriendRequest(item.id, 'reject')}
           disabled={processingRequest === item.id}
         >
           {processingRequest === item.id ? (
-            <ActivityIndicator size="small" color={theme.colors.text.secondary} />
+            <ActivityIndicator size="small" color={getColor('textSecondary')} />
           ) : (
             <>
-              <X color={theme.colors.text.secondary} size={16} />
-              <Text style={[styles.rejectText, { color: theme.colors.text.secondary }]}>Decline</Text>
+              <Ionicons name="close" size={16} color={getColor('textSecondary')} />
+              <Text style={[styles.rejectText, { color: getColor('textSecondary') }]}>Decline</Text>
             </>
           )}
         </TouchableOpacity>
@@ -230,23 +218,23 @@ export default function FriendRequestsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+      <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
         <LinearGradient
-          colors={theme.colors.gradients.neural as [string, string]}
+          colors={theme.gradients.primary}
           style={styles.backgroundGradient}
           pointerEvents="none"
         />
         <SafeAreaView style={styles.safeArea}>
-          <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-              <ArrowLeft color={theme.colors.text.primary} size={24} />
+          <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+              <Text style={{ color: getColor('textPrimary'), fontSize: 18 }}>Back</Text>
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Friend Requests</Text>
+            <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>Friend Requests</Text>
             <View style={styles.headerSpacer} />
           </BlurView>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.text.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>Loading requests...</Text>
+            <ActivityIndicator size="large" color={getColor('textPrimary')} />
+            <Text style={[styles.loadingText, { color: getColor('textSecondary') }]}>Loading requests...</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -254,20 +242,20 @@ export default function FriendRequestsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <LinearGradient
-        colors={theme.colors.gradients.neural as [string, string]}
+        colors={theme.gradients.primary}
         style={styles.backgroundGradient}
         pointerEvents="none"
       />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <ArrowLeft color={theme.colors.text.primary} size={24} />
+        <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+            <Text style={{ color: getColor('textPrimary'), fontSize: 18 }}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Friend Requests</Text>
+          <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>Friend Requests</Text>
           <View style={styles.headerSpacer} />
         </BlurView>
 
@@ -282,23 +270,23 @@ export default function FriendRequestsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={onRefresh}
-              tintColor={theme.colors.text.primary}
+              tintColor={getColor('textPrimary')}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <UserPlus color={theme.colors.text.tertiary} size={48} />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+              <Ionicons name="person-add" size={48} color={getColor('textTertiary')} />
+              <Text style={[styles.emptyTitle, { color: getColor('textPrimary') }]}>
                 No Friend Requests
               </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.emptySubtitle, { color: getColor('textSecondary') }]}>
                 When people send you friend requests, they&apos;ll appear here
               </Text>
               <TouchableOpacity
-                style={[styles.findPeopleButton, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}
+                style={[styles.findPeopleButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
                 onPress={() => router.push('/search')}
               >
-                <Text style={[styles.findPeopleText, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.findPeopleText, { color: getColor('textPrimary') }]}>
                   Find People to Connect With
                 </Text>
               </TouchableOpacity>
@@ -367,53 +355,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
   },
-  userInfo: {
+  requestInfo: {
     flexDirection: 'row',
     marginBottom: 16,
   },
-  userAvatar: {
-    fontSize: 48,
+  avatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#e0e0e0', // Fallback background
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
-  userDetails: {
+  requestAvatar: {
+    fontSize: 24,
+    color: '#333', // Fallback text color
+  },
+  requestDetails: {
     flex: 1,
   },
-  userName: {
+  requestName: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 2,
   },
-  userUsername: {
+  requestUsername: {
     fontSize: 14,
     marginBottom: 4,
   },
-  userBio: {
+  requestBio: {
     fontSize: 14,
     lineHeight: 18,
     marginBottom: 4,
   },
-  userLocation: {
+  requestLocation: {
     fontSize: 12,
     marginBottom: 8,
-  },
-  interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  interestChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  interestText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  moreInterests: {
-    fontSize: 12,
-    alignSelf: 'center',
-    marginLeft: 4,
   },
   actionButtons: {
     flexDirection: 'row',

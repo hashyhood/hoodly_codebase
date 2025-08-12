@@ -1,312 +1,445 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Dimensions } from 'react-native';
-import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
-import { SearchBar } from '../../components/ui/SearchBar';
-import { BusinessDirectory } from '../../components/ui/BusinessDirectory';
-import { SafetyAlerts } from '../../components/ui/SafetyAlerts';
-import { NeighborhoodGroups } from '../../components/ui/NeighborhoodGroups';
-import { ImageOptimizer } from '../../components/ui/ImageOptimizer';
-import { EventCreation } from '../../components/ui/EventCreation';
-import { useTheme } from '../../contexts/ThemeContext';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, StatusBar, Dimensions, Text, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { 
+  HeaderScreen, 
+  SearchBar, 
+  SegmentedChips, 
+  StatPillsRow, 
+  Card, 
+  EmptyState,
+  Spinner,
+  SkeletonCard,
+  GradientFAB
+} from '../../components/ui';
+import { theme, getSpacing, getColor, getRadius } from '../../lib/theme';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-interface Business {
+interface DiscoverFeature {
   id: string;
-  name: string;
-  category: string;
-  rating: number;
-  reviewCount: number;
-  distance: string;
-  address: string;
-  phone: string;
-  website?: string;
-  hours: string;
-  isOpen: boolean;
-  image?: string;
-  tags: string[];
+  title: string;
   description: string;
+  icon: string;
+  badge?: string;
+  onPress: () => void;
 }
 
-interface NeighborhoodGroup {
+interface QuickAction {
   id: string;
-  name: string;
+  label: string;
+  icon: string;
+  onPress: () => void;
+}
+
+interface SearchResult {
+  id: string;
+  type: 'group' | 'event' | 'post' | 'business';
+  title: string;
   description: string;
-  category: string;
-  memberCount: number;
-  maxMembers: number;
-  isPrivate: boolean;
-  avatar: string;
-  coverImage?: string;
-  tags: string[];
-  createdAt: Date;
-  members: any[];
-  recentPosts: any[];
-  rules: string[];
+  image?: string;
+  metadata: any;
 }
 
 export default function DiscoverScreen() {
-  const { theme } = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showBusinessDirectory, setShowBusinessDirectory] = useState(false);
-  const [showSafetyAlerts, setShowSafetyAlerts] = useState(false);
-  const [showNeighborhoodGroups, setShowNeighborhoodGroups] = useState(false);
-  const [showImageOptimizer, setShowImageOptimizer] = useState(false);
-  const [showEventCreation, setShowEventCreation] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasData, setHasData] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const handleBusinessSelect = (business: Business) => {
-    console.log('Selected business:', business);
-    setShowBusinessDirectory(false);
+  useEffect(() => {
+    loadDiscoverData();
+  }, []);
+
+  const loadDiscoverData = async () => {
+    setIsLoading(true);
+    try {
+      // Load initial discover data (stats, features, etc.)
+      // For now, we'll just set hasData to true to show the main content
+      setHasData(true);
+    } catch (error) {
+      console.error('Error loading discover data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAlertReport = (alert: any) => {
-    console.log('New alert reported:', alert);
-  };
-
-  const handleGroupSelect = (group: NeighborhoodGroup) => {
-    console.log('Selected group:', group);
-    setShowNeighborhoodGroups(false);
-  };
-
-  const handleImageSelect = (image: string) => {
-    console.log('Selected image:', image);
-    setShowImageOptimizer(false);
-  };
-
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    console.log('Searching for:', query);
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results: SearchResult[] = [];
+
+      // Search groups
+      const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('id, name, description, image_url, member_count')
+        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+        .limit(5);
+
+      if (!groupsError && groups) {
+        groups.forEach(group => {
+          results.push({
+            id: group.id,
+            type: 'group',
+            title: group.name,
+            description: group.description,
+            image: group.image_url,
+            metadata: { memberCount: group.member_count }
+          });
+        });
+      }
+
+      // Search events
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select('id, title, description, image_url, start_time')
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+        .limit(5);
+
+      if (!eventsError && events) {
+        events.forEach(event => {
+          results.push({
+            id: event.id,
+            type: 'event',
+            title: event.title,
+            description: event.description,
+            image: event.image_url,
+            metadata: { startTime: event.start_time }
+          });
+        });
+      }
+
+      // Search posts
+      const { data: posts, error: postsError } = await supabase
+        .from('posts')
+        .select('id, content, image_url, created_at')
+        .or(`content.ilike.%${query}%`)
+        .limit(5);
+
+      if (!postsError && posts) {
+        posts.forEach(post => {
+          results.push({
+            id: post.id,
+            type: 'post',
+            title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
+            description: post.content,
+            image: post.image_url,
+            metadata: { createdAt: post.created_at }
+          });
+        });
+      }
+
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  const handleFilter = () => {
-    console.log('Filter pressed');
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    // Filter search results based on selected category
+    if (searchResults.length > 0) {
+      if (filter === 'all') {
+        // Show all results
+        return;
+      }
+      // Filter by type
+      const filtered = searchResults.filter(result => result.type === filter.slice(0, -1)); // Remove 's' from end
+      setSearchResults(filtered);
+    }
   };
 
-  const handleVoice = () => {
-    console.log('Voice search pressed');
+  const handleFeaturePress = (featureId: string) => {
+    // Navigate to feature screen based on feature ID
+    switch (featureId) {
+      case 'businesses':
+        // router.push('/businesses'); // TODO: Create business directory screen
+        console.log('Navigate to businesses');
+        break;
+      case 'events':
+        // router.push('/events'); // TODO: Create events screen
+        console.log('Navigate to events');
+        break;
+      case 'groups':
+        router.push('/groups');
+        break;
+      case 'neighbors':
+        // router.push('/neighbors'); // TODO: Create neighbors screen
+        console.log('Navigate to neighbors');
+        break;
+      case 'safety':
+        // router.push('/safety'); // TODO: Create safety screen
+        console.log('Navigate to safety');
+        break;
+      default:
+        console.log('Feature pressed:', featureId);
+        // Default navigation to a generic discover page
+        // router.push(`/discover/${featureId}`); // TODO: Create dynamic discover routes
+    }
   };
 
-  const discoverFeatures = [
-    {
-      id: 'businesses',
-      title: 'Local Businesses',
-      description: 'Find restaurants, shops, and services',
-      icon: '🏪',
-      color: theme.colors.gradients.neural,
-      onPress: () => setShowBusinessDirectory(true),
-      badge: 'New',
-    },
-    {
-      id: 'safety',
-      title: 'Safety Alerts',
-      description: 'Stay informed about your neighborhood',
-      icon: '🛡️',
-      color: theme.colors.gradients.cyber,
-      onPress: () => setShowSafetyAlerts(true),
-      badge: 'Live',
-    },
-    {
-      id: 'groups',
-      title: 'Neighborhood Groups',
-      description: 'Join local communities and discussions',
-      icon: '👥',
-      color: theme.colors.gradients.sunset,
-      onPress: () => setShowNeighborhoodGroups(true),
-    },
-    {
-      id: 'events',
-      title: 'Create Event',
-      description: 'Organize meetups and activities',
-      icon: '🎉',
-      color: theme.colors.gradients.aurora,
-      onPress: () => setShowEventCreation(true),
-    },
-    {
-      id: 'marketplace',
-      title: 'Local Marketplace',
-      description: 'Buy and sell with neighbors',
-      icon: '🛍️',
-      color: theme.colors.gradients.ocean,
-      onPress: () => console.log('Marketplace'),
-    },
-    {
-      id: 'optimizer',
-      title: 'Image Optimizer',
-      description: 'Enhance your photos with AI',
-      icon: '✨',
-      color: theme.colors.gradients.neural,
-      onPress: () => setShowImageOptimizer(true),
-      badge: 'AI',
-    },
+  const handleQuickAction = (actionId: string) => {
+    // Handle quick action based on action ID
+    switch (actionId) {
+      case 'report_issue':
+        // router.push('/report-issue'); // TODO: Create report issue screen
+        console.log('Navigate to report issue');
+        break;
+      case 'join_group':
+        router.push('/groups');
+        break;
+      case 'create_event':
+        // router.push('/create-event'); // TODO: Create event creation screen
+        console.log('Navigate to create event');
+        break;
+      case 'find_business':
+        // router.push('/businesses'); // TODO: Create business directory screen
+        console.log('Navigate to find business');
+        break;
+      case 'emergency':
+        // router.push('/safety'); // TODO: Create safety screen
+        console.log('Navigate to safety');
+        break;
+      default:
+        console.log('Quick action:', actionId);
+        // Show a toast or alert for unknown actions
+        Alert.alert('Action', `Quick action: ${actionId}`);
+    }
+  };
+
+  const filterOptions = [
+    { key: 'all', label: 'All', icon: 'grid' as const },
+    { key: 'businesses', label: 'Businesses', icon: 'business' as const },
+    { key: 'events', label: 'Events', icon: 'calendar' as const },
+    { key: 'groups', label: 'Groups', icon: 'people' as const },
   ];
 
+  const quickActions: QuickAction[] = [];
+
+  const discoverFeatures: DiscoverFeature[] = [];
+
+  const stats: any[] = [];
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <HeaderScreen title="Discover" subtitle="Explore your neighborhood" />
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <EmptyState
+          emoji="🔍"
+          title="Nothing to discover yet"
+          subtitle="Start exploring your neighborhood to see local businesses, events, and groups"
+          cta={{
+            text: "Explore Nearby",
+            onPress: () => setHasData(true)
+          }}
+        />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      <HoodlyLayout
-        neighborhoodName="Discover"
-        activeNeighbors={47}
-        communityHealth={94}
-        socialScore={8.4}
-        eventsToday={23}
-        showSearch={true}
-        searchPlaceholder="Search businesses, groups, events..."
-        onSearch={handleSearch}
+      <HeaderScreen 
+        title="Discover" 
+        subtitle="Explore your neighborhood"
+        rightActions={
+          <View style={styles.headerActions}>
+            {/* Add any header actions here */}
+          </View>
+        }
+      />
+
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <ScrollView 
-          style={styles.content} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <SearchBar
-              placeholder="Search businesses, groups, events..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSearch={() => handleSearch(searchQuery)}
-              onFilter={handleFilter}
-              onVoice={handleVoice}
-              showFilter={true}
-              showVoice={true}
-            />
-          </View>
+        {/* Search Bar */}
+        <SearchBar
+          placeholder="Search businesses, groups, events..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+          withMic={true}
+        />
 
-          {/* Featured Section */}
-          <View style={styles.featuredSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-              Featured
-            </Text>
-            <View style={[styles.featuredCard, { backgroundColor: theme.colors.glass.primary }]}>
-              <Text style={[styles.featuredTitle, { color: theme.colors.text.primary }]}>
-                Welcome to Hoodly Discover! 🎉
+        {/* Filter Chips */}
+        <SegmentedChips
+          items={filterOptions}
+          value={activeFilter}
+          onChange={handleFilterChange}
+        />
+
+        {/* Search Results */}
+        {searchQuery.trim() && (
+          <View style={styles.searchResultsSection}>
+            <View style={styles.searchResultsHeader}>
+              <Text style={styles.searchResultsTitle}>
+                {isSearching ? 'Searching...' : `Search Results (${searchResults.length})`}
               </Text>
-              <Text style={[styles.featuredDescription, { color: theme.colors.text.secondary }]}>
-                Explore your neighborhood like never before. Find local businesses, join groups, stay safe, and connect with your community.
-              </Text>
-              <View style={styles.featuredStats}>
-                <View style={styles.stat}>
-                  <Text style={[styles.statNumber, { color: theme.colors.neural.primary }]}>47</Text>
-                  <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>Active Neighbors</Text>
-                </View>
-                <View style={styles.stat}>
-                  <Text style={[styles.statNumber, { color: theme.colors.neural.primary }]}>23</Text>
-                  <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>Events Today</Text>
-                </View>
-                <View style={styles.stat}>
-                  <Text style={[styles.statNumber, { color: theme.colors.neural.primary }]}>8.4</Text>
-                  <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>Community Score</Text>
-                </View>
-              </View>
+              {searchQuery.trim() && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Text style={styles.clearSearchText}>Clear</Text>
+                </TouchableOpacity>
+              )}
             </View>
+            
+            {isSearching ? (
+              <View style={styles.searchLoading}>
+                <ActivityIndicator size="small" color={getColor('success')} />
+                <Text style={styles.searchLoadingText}>Searching...</Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <View style={styles.searchResultsList}>
+                {searchResults.map((result) => (
+                  <Card key={result.id} variant="default" style={styles.searchResultCard}>
+                    <View style={styles.searchResultContent}>
+                      {result.image && (
+                        <Image 
+                          source={{ uri: result.image }} 
+                          style={styles.searchResultImage}
+                          resizeMode="cover"
+                        />
+                      )}
+                      <View style={styles.searchResultInfo}>
+                        <View style={styles.searchResultHeader}>
+                          <Text style={styles.searchResultType}>{result.type}</Text>
+                          <Text style={styles.searchResultTitle}>{result.title}</Text>
+                        </View>
+                        <Text style={styles.searchResultDescription} numberOfLines={2}>
+                          {result.description}
+                        </Text>
+                        {result.metadata && (
+                          <View style={styles.searchResultMetadata}>
+                            {result.type === 'group' && result.metadata.memberCount && (
+                              <Text style={styles.metadataText}>
+                                {result.metadata.memberCount} members
+                              </Text>
+                            )}
+                            {result.type === 'event' && result.metadata.startTime && (
+                              <Text style={styles.metadataText}>
+                                {new Date(result.metadata.startTime).toLocaleDateString()}
+                              </Text>
+                            )}
+                            {result.type === 'post' && result.metadata.createdAt && (
+                              <Text style={styles.metadataText}>
+                                {new Date(result.metadata.createdAt).toLocaleDateString()}
+                              </Text>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            ) : searchQuery.trim() && !isSearching ? (
+              <View style={styles.noResults}>
+                <Text style={styles.noResultsText}>No results found for "{searchQuery}"</Text>
+                <Text style={styles.noResultsSubtext}>Try adjusting your search terms</Text>
+              </View>
+            ) : null}
           </View>
+        )}
 
-          {/* Discover Features Grid */}
+        {/* Stats Row */}
+        {stats.length > 0 && <StatPillsRow items={stats} />}
+
+        {/* Quick Actions */}
+        {quickActions.length > 0 && (
+          <Card variant="default">
+            <View style={styles.quickActionsGrid}>
+              {quickActions.map((action) => (
+                <View key={action.id} style={styles.quickActionItem}>
+                  <View style={styles.quickActionIcon}>
+                    <Text style={styles.quickActionEmoji}>{action.icon}</Text>
+                  </View>
+                  <Text style={styles.quickActionLabel}>{action.label}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* Features Grid */}
+        {discoverFeatures.length > 0 && (
           <View style={styles.featuresSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-              Explore
-            </Text>
+            <Text style={styles.sectionTitle}>What's Around You</Text>
             <View style={styles.featuresGrid}>
               {discoverFeatures.map((feature) => (
-                <TouchableOpacity
-                  key={feature.id}
-                  style={[styles.featureCard, { backgroundColor: theme.colors.glass.primary }]}
-                  onPress={feature.onPress}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.featureIcon, { backgroundColor: feature.color[0] }]}>
-                    <Text style={styles.iconText}>{feature.icon}</Text>
-                  </View>
-                  <Text style={[styles.featureTitle, { color: theme.colors.text.primary }]}>
-                    {feature.title}
-                  </Text>
-                  <Text style={[styles.featureDescription, { color: theme.colors.text.secondary }]}>
-                    {feature.description}
-                  </Text>
-                  {feature.badge && (
-                    <View style={[styles.featureBadge, { backgroundColor: theme.colors.status.error }]}>
-                      <Text style={[styles.badgeText, { color: 'white' }]}>{feature.badge}</Text>
+                <Card key={feature.id} variant="default" onPress={feature.onPress}>
+                  <View style={styles.featureContent}>
+                    <View style={styles.featureHeader}>
+                      <Text style={styles.featureIcon}>{feature.icon}</Text>
+                      {feature.badge && (
+                        <View style={styles.featureBadge}>
+                          <Text style={styles.featureBadgeText}>{feature.badge}</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </TouchableOpacity>
+                    <Text style={styles.featureTitle}>{feature.title}</Text>
+                    <Text style={styles.featureDescription}>{feature.description}</Text>
+                  </View>
+                </Card>
               ))}
             </View>
           </View>
+        )}
 
-          {/* Performance & Coming Soon */}
-          <View style={styles.performanceSection}>
-            <View style={[styles.performanceCard, { backgroundColor: theme.colors.glass.primary }]}>
-              <Text style={[styles.performanceTitle, { color: theme.colors.text.primary }]}>
-                Community Performance
-              </Text>
-              <View style={styles.performanceGrid}>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.performanceValue, { color: theme.colors.neural.secondary }]}>94%</Text>
-                  <Text style={[styles.performanceLabel, { color: theme.colors.text.tertiary }]}>Health</Text>
-                </View>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.performanceValue, { color: theme.colors.neural.secondary }]}>8.4</Text>
-                  <Text style={[styles.performanceLabel, { color: theme.colors.text.tertiary }]}>Score</Text>
-                </View>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.performanceValue, { color: theme.colors.neural.secondary }]}>23</Text>
-                  <Text style={[styles.performanceLabel, { color: theme.colors.text.tertiary }]}>Events</Text>
-                </View>
+        {/* Recent Activity */}
+        <View style={styles.recentSection}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <Card variant="default">
+            <View style={styles.recentActivity}>
+              <View style={styles.recentIcon}>
+                <Text style={styles.recentEmoji}>📈</Text>
               </View>
-            </View>
-          </View>
-
-          <View style={styles.comingSoonSection}>
-            <View style={[styles.comingSoonCard, { backgroundColor: theme.colors.glass.primary }]}>
-              <Text style={[styles.comingSoonTitle, { color: theme.colors.text.primary }]}>
-                Coming Soon
-              </Text>
-              <Text style={[styles.comingSoonDescription, { color: theme.colors.text.secondary }]}>
-                We&apos;re constantly adding new features to make your neighborhood experience even better.
-              </Text>
-              <View style={styles.comingSoonFeatures}>
-                <Text style={[styles.comingSoonFeature, { color: theme.colors.text.tertiary }]}>
-                  • Augmented reality features
-                </Text>
-                <Text style={[styles.comingSoonFeature, { color: theme.colors.text.tertiary }]}>
-                  • Advanced analytics dashboard
+              <View style={styles.recentContent}>
+                <Text style={styles.recentTitle}>No recent activity</Text>
+                <Text style={styles.recentDescription}>
+                  Activity will appear here as you explore your neighborhood
                 </Text>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </HoodlyLayout>
+          </Card>
+        </View>
+      </ScrollView>
 
-      {/* Modals */}
-      <BusinessDirectory
-        isVisible={showBusinessDirectory}
-        onClose={() => setShowBusinessDirectory(false)}
-        onBusinessSelect={handleBusinessSelect}
-      />
-
-      <SafetyAlerts
-        isVisible={showSafetyAlerts}
-        onClose={() => setShowSafetyAlerts(false)}
-        onAlertReport={handleAlertReport}
-      />
-
-      <NeighborhoodGroups
-        isVisible={showNeighborhoodGroups}
-        onClose={() => setShowNeighborhoodGroups(false)}
-        onGroupSelect={handleGroupSelect}
-      />
-
-      <ImageOptimizer
-        isVisible={showImageOptimizer}
-        onClose={() => setShowImageOptimizer(false)}
-        onImageSelect={handleImageSelect}
-      />
-
-      <EventCreation
-        isVisible={showEventCreation}
-        onClose={() => setShowEventCreation(false)}
-        onSave={(event) => console.log('Event created:', event)}
+      {/* Floating Action Button */}
+      <GradientFAB
+        onPress={() => handleFeaturePress('create')}
+        icon="add"
       />
     </View>
   );
@@ -315,156 +448,235 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: getColor('bg'),
   },
-  content: {
+  scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 120, // Space for the tab bar
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 120, // Account for tab bar
   },
-  searchContainer: {
-    marginBottom: 24,
-  },
-  featuredSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  featuredCard: {
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  featuredTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  featuredDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  featuredStats: {
+  headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  stat: {
     alignItems: 'center',
+    gap: getSpacing('sm'),
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: getSpacing('md'),
   },
-  statLabel: {
+  quickActionItem: {
+    alignItems: 'center',
+    width: (width - getSpacing('lg') * 2 - getSpacing('md') * 3) / 4,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: getColor('surface'),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: getSpacing('sm'),
+  },
+  quickActionEmoji: {
+    fontSize: 24,
+  },
+  quickActionLabel: {
     fontSize: 12,
+    fontWeight: '600',
+    color: getColor('textSecondary'),
+    textAlign: 'center',
   },
   featuresSection: {
-    marginBottom: 24,
+    marginTop: getSpacing('xl'),
+    paddingHorizontal: getSpacing('lg'),
+  },
+  sectionTitle: {
+    fontSize: theme.typography.title.size,
+    fontWeight: theme.typography.title.weight as any,
+    color: getColor('textPrimary'),
+    marginBottom: getSpacing('lg'),
   },
   featuresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
+    gap: getSpacing('md'),
   },
-  featureCard: {
-    borderRadius: 16,
-    padding: 20,
-    width: (width - 64 - 16) / 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  featureContent: {
+    alignItems: 'center',
+    padding: getSpacing('md'),
+  },
+  featureHeader: {
     position: 'relative',
+    marginBottom: getSpacing('sm'),
   },
   featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    fontSize: 32,
   },
-  iconText: {
-    fontSize: 24,
+  featureBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: getColor('success'),
+    paddingHorizontal: getSpacing('xs'),
+    paddingVertical: 2,
+    borderRadius: getRadius('pill'),
+  },
+  featureBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: getColor('textPrimary'),
   },
   featureTitle: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    color: getColor('textPrimary'),
+    textAlign: 'center',
+    marginBottom: getSpacing('xs'),
   },
   featureDescription: {
     fontSize: 12,
+    color: getColor('textSecondary'),
+    textAlign: 'center',
     lineHeight: 16,
   },
-  featureBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  recentSection: {
+    marginTop: getSpacing('xl'),
+    paddingHorizontal: getSpacing('lg'),
+    marginBottom: getSpacing('xl'),
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  performanceSection: {
-    marginBottom: 24,
-  },
-  performanceCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  performanceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  performanceGrid: {
+  recentActivity: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  performanceItem: {
     alignItems: 'center',
   },
-  performanceValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
+  recentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: getColor('surface'),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: getSpacing('md'),
   },
-  performanceLabel: {
-    fontSize: 12,
+  recentEmoji: {
+    fontSize: 24,
   },
-  comingSoonSection: {
-    marginBottom: 24,
+  recentContent: {
+    flex: 1,
   },
-  comingSoonCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  comingSoonTitle: {
+  recentTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    color: getColor('textPrimary'),
+    marginBottom: getSpacing('xs'),
   },
-  comingSoonDescription: {
+  recentDescription: {
     fontSize: 14,
-    marginBottom: 16,
+    color: getColor('textSecondary'),
+    lineHeight: 20,
   },
-  comingSoonFeatures: {
-    gap: 8,
+  // Search Results Styles
+  searchResultsSection: {
+    marginTop: getSpacing('lg'),
+    paddingHorizontal: getSpacing('lg'),
   },
-  comingSoonFeature: {
+  searchResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: getSpacing('md'),
+  },
+  searchResultsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: getColor('textPrimary'),
+  },
+  clearSearchText: {
+    fontSize: 14,
+    color: getColor('success'),
+    fontWeight: '500',
+  },
+  searchLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: getSpacing('lg'),
+  },
+  searchLoadingText: {
+    marginLeft: getSpacing('sm'),
+    fontSize: 14,
+    color: getColor('textSecondary'),
+  },
+  searchResultsList: {
+    gap: getSpacing('md'),
+  },
+  searchResultCard: {
+    marginBottom: getSpacing('sm'),
+  },
+  searchResultContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  searchResultImage: {
+    width: 60,
+    height: 60,
+    borderRadius: getRadius('md'),
+    marginRight: getSpacing('md'),
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultHeader: {
+    marginBottom: getSpacing('xs'),
+  },
+  searchResultType: {
     fontSize: 12,
+    color: getColor('textTertiary'),
+    textTransform: 'uppercase',
+    fontWeight: '500',
+    marginBottom: getSpacing('xs'),
+  },
+  searchResultTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: getColor('textPrimary'),
+    marginBottom: getSpacing('xs'),
+  },
+  searchResultDescription: {
+    fontSize: 14,
+    color: getColor('textSecondary'),
+    lineHeight: 18,
+    marginBottom: getSpacing('sm'),
+  },
+  searchResultMetadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: getSpacing('sm'),
+  },
+  metadataText: {
+    fontSize: 12,
+    color: getColor('textTertiary'),
+    backgroundColor: getColor('surface'),
+    paddingHorizontal: getSpacing('xs'),
+    paddingVertical: 2,
+    borderRadius: getRadius('sm'),
+  },
+  noResults: {
+    alignItems: 'center',
+    padding: getSpacing('xl'),
+  },
+  noResultsText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: getColor('textSecondary'),
+    marginBottom: getSpacing('xs'),
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: getColor('textTertiary'),
+    textAlign: 'center',
   },
 }); 

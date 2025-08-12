@@ -10,21 +10,21 @@ import {
   TextInput,
   Switch,
   Animated,
+  Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
   Shield, 
-  AlertTriangle, 
+  AlertCircle, 
   Phone, 
   MapPin, 
   Bell, 
-  BellOff, 
   Plus, 
   X,
   Users,
   MessageCircle,
-  Navigation
+  Navigation,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -72,7 +72,7 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
   onAlertPress,
   onEmergencyCall,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<SafetyAlert[]>([]);
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
@@ -241,8 +241,8 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
 
               // Notify emergency contacts
               emergencyContacts.forEach(contact => {
-                // TODO: Implement SMS/call functionality
-                console.log(`Calling ${contact.name} at ${contact.phone}`);
+                // Implement SMS/call functionality
+                handleEmergencyContact(contact);
               });
 
               // Send push notification to nearby users
@@ -267,6 +267,65 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
         },
       ]
     );
+  };
+
+  // Handle emergency contact communication
+  const handleEmergencyContact = async (contact: EmergencyContact) => {
+    try {
+      // Try to make a phone call first
+      const phoneUrl = `tel:${contact.phone}`;
+      const canOpenPhone = await Linking.canOpenURL(phoneUrl);
+      
+      if (canOpenPhone) {
+        await Linking.openURL(phoneUrl);
+      } else {
+        // Fallback to SMS if phone call is not available
+        const smsUrl = `sms:${contact.phone}`;
+        const canOpenSMS = await Linking.canOpenURL(smsUrl);
+        
+        if (canOpenSMS) {
+          await Linking.openURL(smsUrl);
+        } else {
+          console.log(`Cannot open phone or SMS for ${contact.name} at ${contact.phone}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error contacting emergency contact ${contact.name}:`, error);
+    }
+  };
+
+  // Send SMS to emergency contact
+  const sendSMSToContact = async (contact: EmergencyContact, message: string) => {
+    try {
+      const smsUrl = `sms:${contact.phone}?body=${encodeURIComponent(message)}`;
+      const canOpenSMS = await Linking.canOpenURL(smsUrl);
+      
+      if (canOpenSMS) {
+        await Linking.openURL(smsUrl);
+      } else {
+        Alert.alert('Error', 'SMS is not available on this device');
+      }
+    } catch (error) {
+      console.error(`Error sending SMS to ${contact.name}:`, error);
+      Alert.alert('Error', 'Failed to send SMS');
+    }
+  };
+
+  // Make phone call to emergency contact
+  const callContact = async (contact: EmergencyContact) => {
+    try {
+      const phoneUrl = `tel:${contact.phone}`;
+      const canOpenPhone = await Linking.canOpenURL(phoneUrl);
+      
+      if (canOpenPhone) {
+        await Linking.openURL(phoneUrl);
+      } else {
+        Alert.alert('Error', 'Phone calls are not available on this device');
+      }
+    } catch (error) {
+      console.error(`Error calling ${contact.name}:`, error);
+      Alert.alert('Error', 'Failed to make phone call');
+    }
   };
 
   // Initialize
@@ -352,13 +411,13 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'high':
-        return theme.colors.status.error;
+        return colors.status.error;
       case 'medium':
-        return theme.colors.status.warning;
+        return colors.status.warning;
       case 'low':
-        return theme.colors.status.success;
+        return colors.status.success;
       default:
-        return theme.colors.text.secondary;
+        return colors.text.secondary;
     }
   };
 
@@ -376,16 +435,16 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
   const renderAlertCard = (alert: SafetyAlert) => (
     <TouchableOpacity
       key={alert.id}
-      style={[styles.alertCard, { backgroundColor: theme.colors.glass.primary }]}
+      style={[styles.alertCard, { backgroundColor: colors.glass.primary }]}
       onPress={() => onAlertPress?.(alert)}
     >
       <View style={styles.alertHeader}>
         <Text style={styles.alertIcon}>{getAlertIcon(alert.type)}</Text>
         <View style={styles.alertInfo}>
-          <Text style={[styles.alertTitle, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.alertTitle, { color: colors.text.primary }]}>
             {alert.title}
           </Text>
-          <Text style={[styles.alertTime, { color: theme.colors.text.tertiary }]}>
+          <Text style={[styles.alertTime, { color: colors.text.tertiary }]}>
             {formatTimeAgo(alert.created_at)}
           </Text>
         </View>
@@ -397,21 +456,21 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
         />
       </View>
       
-      <Text style={[styles.alertDescription, { color: theme.colors.text.secondary }]}>
+      <Text style={[styles.alertDescription, { color: colors.text.secondary }]}>
         {alert.description}
       </Text>
       
       <View style={styles.alertActions}>
         <TouchableOpacity style={styles.actionButton}>
-          <MapPin size={16} color={theme.colors.text.secondary} />
-          <Text style={[styles.actionText, { color: theme.colors.text.secondary }]}>
+          <MapPin size={16} color={colors.text.secondary} />
+          <Text style={[styles.actionText, { color: colors.text.secondary }]}>
             View Location
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.actionButton}>
-          <Users size={16} color={theme.colors.text.secondary} />
-          <Text style={[styles.actionText, { color: theme.colors.text.secondary }]}>
+          <Users size={16} color={colors.text.secondary} />
+          <Text style={[styles.actionText, { color: colors.text.secondary }]}>
             Affected Area
           </Text>
         </TouchableOpacity>
@@ -420,30 +479,30 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
   );
 
   const renderEmergencyContact = (contact: EmergencyContact) => (
-    <View
-      style={[styles.contactCard, { backgroundColor: theme.colors.glass.primary }]}
+        <View
+          style={[styles.contactCard, { backgroundColor: colors.glass.primary }]}
     >
       <View style={styles.contactInfo}>
-        <Text style={[styles.contactName, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.contactName, { color: colors.text.primary }]}>
           {contact.name}
         </Text>
-        <Text style={[styles.contactPhone, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.contactPhone, { color: colors.text.secondary }]}>
           {contact.phone}
         </Text>
-        <Text style={[styles.contactRelationship, { color: theme.colors.text.tertiary }]}>
+          <Text style={[styles.contactRelationship, { color: colors.text.tertiary }]}>
           {contact.relationship}
         </Text>
       </View>
       
       <View style={styles.contactActions}>
         {contact.is_primary && (
-          <View style={[styles.primaryBadge, { backgroundColor: theme.colors.status.success }]}>
+          <View style={[styles.primaryBadge, { backgroundColor: colors.status.success }]}>
             <Text style={styles.primaryText}>Primary</Text>
           </View>
         )}
         
         <TouchableOpacity style={styles.callButton}>
-          <Phone size={16} color={theme.colors.text.inverse} />
+          <Phone size={16} color={colors.text.inverse} />
         </TouchableOpacity>
       </View>
     </View>
@@ -459,11 +518,11 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
       <View style={styles.modalOverlay}>
         <BlurView intensity={20} style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
               Safety & Emergency
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <X size={24} color={theme.colors.text.secondary} />
+              <X size={24} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
           
@@ -481,7 +540,7 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
               ]}
             >
               <TouchableOpacity
-                style={[styles.emergencyButtonInner, { backgroundColor: theme.colors.status.error }]}
+                style={[styles.emergencyButtonInner, { backgroundColor: colors.status.error }]}
                 onPress={sendEmergencyAlert}
               >
                 <Shield size={32} color="white" />
@@ -492,14 +551,14 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
             {/* Safety Alerts */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
                   Safety Alerts
                 </Text>
                 <TouchableOpacity style={styles.notificationToggle}>
                   {isNotificationsEnabled ? (
-                    <Bell size={20} color={theme.colors.status.success} />
+                    <Bell size={20} color={colors.status.success} />
                   ) : (
-                    <BellOff size={20} color={theme.colors.text.tertiary} />
+                    <Bell size={20} color={colors.text.tertiary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -507,8 +566,8 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
               <View style={styles.alertsContainer}>
                 {alerts.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <AlertTriangle size={48} color={theme.colors.text.tertiary} />
-                    <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+                    <AlertCircle size={48} color={colors.text.tertiary} />
+                    <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                       No active safety alerts in your area
                     </Text>
                   </View>
@@ -521,22 +580,22 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
             {/* Emergency Contacts */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
                   Emergency Contacts
                 </Text>
                 <TouchableOpacity
                   style={styles.addButton}
                   onPress={() => setShowAddContactModal(true)}
                 >
-                  <Plus size={20} color={theme.colors.neural.primary} />
+                  <Plus size={20} color={colors.neural.primary} />
                 </TouchableOpacity>
               </View>
               
               <View style={styles.contactsContainer}>
                 {emergencyContacts.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Users size={48} color={theme.colors.text.tertiary} />
-                    <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+                    <Users size={48} color={colors.text.tertiary} />
+                    <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                       No emergency contacts added
                     </Text>
                   </View>
@@ -557,36 +616,36 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
         onRequestClose={() => setShowAddContactModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <BlurView intensity={20} style={styles.modalContent}>
+        <BlurView intensity={20} style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
                 Add Emergency Contact
               </Text>
               <TouchableOpacity onPress={() => setShowAddContactModal(false)}>
-                <X size={24} color={theme.colors.text.secondary} />
+              <X size={24} color={colors.text.secondary} />
               </TouchableOpacity>
             </View>
             
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.colors.glass.primary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.glass.border,
+                backgroundColor: colors.glass.primary,
+                color: colors.text.primary,
+                borderColor: colors.glass.border,
               }]}
               placeholder="Full Name"
-              placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
               value={newContact.name}
               onChangeText={(text) => setNewContact(prev => ({ ...prev, name: text }))}
             />
             
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.colors.glass.primary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.glass.border,
+                backgroundColor: colors.glass.primary,
+                color: colors.text.primary,
+                borderColor: colors.glass.border,
               }]}
               placeholder="Phone Number"
-              placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
               value={newContact.phone}
               onChangeText={(text) => setNewContact(prev => ({ ...prev, phone: text }))}
               keyboardType="phone-pad"
@@ -594,18 +653,18 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
             
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.colors.glass.primary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.glass.border,
+                backgroundColor: colors.glass.primary,
+                color: colors.text.primary,
+                borderColor: colors.glass.border,
               }]}
               placeholder="Relationship (Optional)"
-              placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
               value={newContact.relationship}
               onChangeText={(text) => setNewContact(prev => ({ ...prev, relationship: text }))}
             />
             
             <TouchableOpacity
-              style={[styles.addContactButton, { backgroundColor: theme.colors.neural.primary }]}
+            style={[styles.addContactButton, { backgroundColor: colors.neural.primary }]}
               onPress={addEmergencyContact}
             >
               <Text style={styles.addContactButtonText}>Add Contact</Text>

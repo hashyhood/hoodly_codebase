@@ -1,39 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Dimensions, Alert, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView, 
+  StatusBar, 
+  Dimensions, 
+  Alert, 
+  RefreshControl, 
+  Image,
+  Animated,
+  Platform,
+  SafeAreaView
+} from 'react-native';
 import { router } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { 
-  Settings, 
-  Search, 
-  Bell, 
-  Edit3, 
-  Moon, 
-  Sun,
-  Users,
-  UserPlus,
-  Shield,
-  MapPin,
-  Calendar,
-  ShoppingBag,
-  Heart,
-  Bookmark,
-  HelpCircle,
-  LogOut,
-  Plus,
-  MessageCircle,
-  Check,
-  User
-} from 'lucide-react-native';
-import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
-import { ProfileCustomization } from '../../components/ui/ProfileCustomization';
-import { useTheme } from '../../contexts/ThemeContext';
+  HeaderScreen,
+  Card,
+  EmptyState,
+  Spinner,
+  GradientFAB,
+  Gradient
+} from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { PostCard } from '../../components/ui/PostCard';
 import { getApiUrl } from '../../lib/config';
+import { postsApi } from '../../lib/api';
+import { logger } from '../../lib/logger';
+import { useUserFollowStats } from '../../hooks/useFollowSystem';
+import { ProfileCustomization } from '../../components/ui/ProfileCustomization';
+import { FloatingActionButton } from '../../components/ui/FloatingActionButton';
+import { Database } from '../../types';
+import { theme, getSpacing, getColor, getRadius } from '../../lib/theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 interface ProfileData {
   id: string;
@@ -53,19 +59,22 @@ interface ProfileData {
   followingCount: number;
   postsCount: number;
   followStatus: 'none' | 'requested' | 'following';
+  socialScore: number;
+  communityLevel: number;
+  badges: string[];
 }
 
 interface UserPost {
   id: string;
   content: string;
   created_at: string;
-  like_count: number;
-  comment_count: number;
+  like_count: number | null;
+  comment_count: number | null;
 }
 
 interface UserComment {
   id: string;
-  text: string;
+  content: string;
   created_at: string;
   post: {
     id: string;
@@ -74,8 +83,8 @@ interface UserComment {
 }
 
 export default function ProfileScreen() {
-  const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, profile } = useAuth();
+  const { followerCount, followingCount } = useUserFollowStats(user?.id || null);
   
   // Safe check for user
   if (!user) return null;
@@ -88,63 +97,64 @@ export default function ProfileScreen() {
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [userComments, setUserComments] = useState<UserComment[]>([]);
   const [loadingContent, setLoadingContent] = useState(true);
+  const [activeTab, setActiveTab] = useState<'posts' | 'comments' | 'achievements'>('posts');
+
+  // Animations
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const avatarScale = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.8],
+    extrapolate: 'clamp',
+  });
+  const statsOpacity = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [1, 0.3],
+    extrapolate: 'clamp',
+  });
 
   const [profileData, setProfileData] = useState<ProfileData>({
     id: user.id,
-    personalName: user?.user_metadata?.name || user?.email?.split('@')[0] || 'Alex Johnson',
-    username: user?.user_metadata?.username || 'alexj',
-    bio: 'Tech enthusiast, coffee lover, hood advocate ☕️',
-    avatar: '👤',
-    interests: ['Programming', 'Coffee', 'Running'],
-    location: 'Downtown District, San Francisco',
-    website: 'alexjohnson.dev',
-    socialLinks: {
-      instagram: '@alexj',
-      twitter: '@alexjohnson',
-    },
-    followersCount: 0,
-    followingCount: 0,
+    personalName: profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Anonymous',
+    username: (profile as any)?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'anonymous',
+    bio: profile?.bio || 'Sharing moments, building connections ✨',
+    avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face',
+    interests: (profile as any)?.interests || ['Community', 'Connection', 'Growth'],
+    location: profile?.neighborhood || 'Your Neighborhood',
+    website: '',
+    socialLinks: {},
+    followersCount: followerCount || 0,
+    followingCount: followingCount || 0,
     postsCount: 0,
-    followStatus: 'none'
+    followStatus: 'none' as const,
+    socialScore: 8.4,
+    communityLevel: 5,
+    badges: ['Early Adopter', 'Community Builder', 'Active Member'],
   });
+
+  useEffect(() => {
+    loadProfileData();
+    loadUserContent();
+  }, [user?.id]);
+
+  useEffect(() => {
+    // Update profile data when follow stats change
+    setProfileData(prev => ({
+      ...prev,
+      followersCount: followerCount || 0,
+      followingCount: followingCount || 0,
+    }));
+  }, [followerCount, followingCount]);
 
   const loadProfileData = async () => {
     try {
       setIsLoading(true);
       
-      // Load profile data from Supabase
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (profile) {
-        setProfileData(prev => ({
-          ...prev,
-          personalName: profile.personalName || prev.personalName,
-          username: profile.username || prev.username,
-          bio: profile.bio || prev.bio,
-          avatar: profile.avatar || prev.avatar,
-          interests: profile.interests || prev.interests,
-          location: profile.location || prev.location,
-        }));
-      }
-
-      // Load follower/following counts
-      const { count: followersCount } = await supabase
-        .from('friends')
-        .select('*', { count: 'exact', head: true })
-        .eq('friend_id', user.id);
-
-      const { count: followingCount } = await supabase
-        .from('friends')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      // Load posts count
+      // Get user's posts count
       const { count: postsCount } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true })
@@ -152,16 +162,11 @@ export default function ProfileScreen() {
 
       setProfileData(prev => ({
         ...prev,
-        followersCount: followersCount || 0,
-        followingCount: followingCount || 0,
         postsCount: postsCount || 0,
       }));
 
-      // Load user content
-      await loadUserContent();
-
     } catch (error) {
-      console.error('Error loading profile data:', error);
+      logger.error('Error loading profile data:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -169,86 +174,56 @@ export default function ProfileScreen() {
   };
 
   const loadUserContent = async () => {
-    if (!user) return;
-    
     try {
       setLoadingContent(true);
       
-      // Load user's recent posts
-      const postsResponse = await fetch(`${getApiUrl()}/posts/user/${user.id}`);
-      const postsData = await postsResponse.json();
-      if (postsData.success) {
-        setUserPosts(postsData.posts?.slice(0, 5) || []); // Show last 5 posts
-      }
+      // Load user's posts
+      const { data: posts, error: postsError } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      // Load user's recent comments
-      const { data: comments, error } = await supabase
+      if (postsError) throw postsError;
+      setUserPosts(posts || []);
+
+      // Load user's comments
+      const { data: comments, error: commentsError } = await supabase
         .from('comments')
         .select(`
-          id,
-          text,
-          created_at,
-          post:posts!comments_post_id_fkey(id, content)
+          *,
+          post:posts(id, content)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
-      if (!error) {
-        setUserComments(comments || []);
-      }
+      if (commentsError) throw commentsError;
+      setUserComments(comments || []);
+
     } catch (error) {
-      console.error('Error loading user content:', error);
+      logger.error('Error loading user content:', error);
     } finally {
       setLoadingContent(false);
     }
   };
 
-  useEffect(() => {
-    loadProfileData();
-  }, [user]);
-
   const onRefresh = () => {
     setIsRefreshing(true);
     loadProfileData();
+    loadUserContent();
   };
 
   const handleFollowToggle = async () => {
-    if (!user) return;
+    if (processingFollow) return;
     
     setProcessingFollow(true);
-    
     try {
-      if (profileData.followStatus === 'none') {
-        // Send follow request to yourself (for demo purposes)
-        Alert.alert('Follow', 'You cannot follow yourself!');
-      } else if (profileData.followStatus === 'requested') {
-        // Cancel follow request
-        const { error } = await supabase
-          .from('friend_requests')
-          .delete()
-          .eq('from_user_id', user.id)
-          .eq('to_user_id', user.id);
-        
-        if (error) throw error;
-        
-        setProfileData(prev => ({ ...prev, followStatus: 'none' }));
-        Alert.alert('Request Cancelled', 'Follow request has been cancelled.');
-        
-      } else if (profileData.followStatus === 'following') {
-        // Unfollow
-        const { error } = await supabase
-          .from('friends')
-          .delete()
-          .or(`user_id.eq.${user.id}.and.friend_id.eq.${user.id}`);
-        
-        if (error) throw error;
-        
-        setProfileData(prev => ({ ...prev, followStatus: 'none' }));
-        Alert.alert('Unfollowed', 'You have unfollowed yourself.');
-      }
+      // This would be implemented with your follow system
+      Alert.alert('Coming Soon', 'Follow functionality will be available soon!');
     } catch (error) {
-      console.error('Follow toggle error:', error);
+      logger.warn('Follow toggle error:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setProcessingFollow(false);
@@ -257,22 +232,34 @@ export default function ProfileScreen() {
 
   const handleAction = (action: string) => {
     setSelectedAction(action);
-    console.log(`Action: ${action}`);
+    // Handle different actions
+    switch (action) {
+      case 'edit':
+        setShowProfileCustomization(true);
+        break;
+      case 'settings':
+        router.push('/settings');
+        break;
+      case 'logout':
+        handleSignOut();
+        break;
+      default:
+        break;
+    }
   };
 
   const handleProfileSave = async (newProfile: Partial<ProfileData>) => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
-          personalName: newProfile.personalName,
+        .upsert({
+          id: user.id,
+          full_name: newProfile.personalName,
           username: newProfile.username,
           bio: newProfile.bio,
-          avatar: newProfile.avatar,
-          interests: newProfile.interests,
-          location: newProfile.location,
-        })
-        .eq('id', user.id);
+          avatar_url: newProfile.avatar,
+          neighborhood: newProfile.location,
+        });
 
       if (error) throw error;
 
@@ -280,8 +267,8 @@ export default function ProfileScreen() {
       setShowProfileCustomization(false);
       Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile.');
+      logger.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile');
     }
   };
 
@@ -299,6 +286,7 @@ export default function ProfileScreen() {
               await signOut();
               router.replace('/auth');
             } catch (error) {
+              logger.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to sign out');
             }
           },
@@ -308,375 +296,340 @@ export default function ProfileScreen() {
   };
 
   const getFollowButtonContent = () => {
-    if (processingFollow) {
-      return <ActivityIndicator size="small" color={theme.colors.text.inverse} />;
-    }
-
     switch (profileData.followStatus) {
-      case 'none':
-        return (
-          <>
-            <UserPlus color={theme.colors.text.inverse} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.inverse }]}>Follow</Text>
-          </>
-        );
-      case 'requested':
-        return (
-          <>
-            <User color={theme.colors.text.secondary} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.secondary }]}>Requested</Text>
-          </>
-        );
       case 'following':
-        return (
-          <>
-            <Check color={theme.colors.text.inverse} size={16} />
-            <Text style={[styles.followText, { color: theme.colors.text.inverse }]}>Following</Text>
-          </>
-        );
+        return { text: 'Following', icon: 'checkmark-circle' as const };
+      case 'requested':
+        return { text: 'Requested', icon: 'calendar' as const };
       default:
-        return null;
+        return { text: 'Follow', icon: 'person-add' as const };
     }
   };
 
   const getFollowButtonStyle = () => {
-    switch (profileData.followStatus) {
-      case 'none':
-        return { backgroundColor: theme.colors.neural.primary };
-      case 'requested':
-        return { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border };
-      case 'following':
-        return { backgroundColor: theme.colors.neural.primary };
-      default:
-        return { backgroundColor: theme.colors.neural.primary };
-    }
+    const isFollowing = profileData.followStatus === 'following';
+    return {
+      backgroundColor: isFollowing ? 'rgba(255, 255, 255, 0.1)' : getColor('success'),
+      borderColor: isFollowing ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+    };
   };
 
-  // Three main action buttons at the top
-  const topActions = [
-    {
-      id: 'edit-profile',
-      title: 'Edit Profile',
-      icon: Edit3,
-      onPress: () => setShowProfileCustomization(true),
-      color: theme.colors.neural.primary,
-    },
-    {
-      id: 'search',
-      title: 'Search',
-      icon: Search,
-      onPress: () => router.push('/search'),
-      color: '#FF6B9D',
-    },
-    {
-      id: 'settings',
-      title: 'Settings',
-      icon: Settings,
-      onPress: () => console.log('Settings'),
-      color: '#4ECDC4',
-    },
-  ];
+  const formatTimeAgo = (dateString: string) => {
+    if (!dateString) return 'just now';
+    
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d`;
+    return `${Math.floor(diffInSeconds / 2592000)}mo`;
+  };
 
-  const quickActions = [
-    {
-      id: 'friend-requests',
-      title: 'Friend Requests',
-      icon: UserPlus,
-      onPress: () => router.push('/friend-requests'),
-      color: '#FF6B9D',
-    },
-    {
-      id: 'my-friends',
-      title: 'My Friends',
-      icon: Users,
-      onPress: () => router.push('/friends'),
-      color: '#4ECDC4',
-    },
-    {
-      id: 'safety-settings',
-      title: 'Safety Settings',
-      icon: Shield,
-      onPress: () => console.log('Safety Settings'),
-      color: '#FFE66D',
-    },
-  ];
+  const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
 
-  const appFeatures = [
-    {
-      id: 'events',
-      title: 'My Events',
-      icon: Calendar,
-      onPress: () => console.log('Events'),
-      color: '#FF6B9D',
-    },
-    {
-      id: 'marketplace',
-      title: 'My Listings',
-      icon: ShoppingBag,
-      onPress: () => console.log('Marketplace'),
-      color: '#4ECDC4',
-    },
-    {
-      id: 'favorites',
-      title: 'Favorites',
-      icon: Heart,
-      onPress: () => console.log('Favorites'),
-      color: '#FF8B94',
-    },
-    {
-      id: 'saved',
-      title: 'Saved',
-      icon: Bookmark,
-      onPress: () => console.log('Saved'),
-      color: '#A8E6CF',
-    },
-  ];
+  const renderPremiumHeader = () => (
+    <View style={styles.headerContainer}>
+              <Animated.View style={[styles.headerBackground, { opacity: headerOpacity }]}>
+          <BlurView intensity={30} style={styles.headerBlur}>
+            <Gradient type="primary" style={styles.headerGradient} />
+          </BlurView>
+        </Animated.View>
+        
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={[styles.headerButton, { backgroundColor: getColor('surface') }]}
+            onPress={() => handleAction('settings')}
+          >
+            <Ionicons name="settings-outline" size={20} color={getColor('textPrimary')} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.headerButton, { backgroundColor: getColor('surface') }]}
+            onPress={() => handleAction('edit')}
+          >
+            <Ionicons name="pencil-outline" size={20} color={getColor('textPrimary')} />
+          </TouchableOpacity>
+        </View>
+    </View>
+  );
 
-  const appSettings = [
-    {
-      id: 'theme',
-      title: theme.mode === 'dark' ? 'Light Mode' : 'Dark Mode',
-      icon: theme.mode === 'dark' ? Sun : Moon,
-      onPress: toggleTheme,
-      color: '#FFD93D',
-    },
-    {
-      id: 'help',
-      title: 'Help & Support',
-      icon: HelpCircle,
-      onPress: () => console.log('Help'),
-      color: '#6C5CE7',
-    },
-    {
-      id: 'signout',
-      title: 'Sign Out',
-      icon: LogOut,
-      onPress: handleSignOut,
-      color: '#FF6B6B',
-    },
-  ];
+  const renderHeroSection = () => (
+    <View style={styles.heroSection}>
+      <Animated.View style={[styles.avatarContainer, { transform: [{ scale: avatarScale }] }]}>
+        <Image source={{ uri: profileData.avatar }} style={styles.avatar} />
+        <View style={styles.avatarBorder} />
+        <TouchableOpacity style={styles.cameraButton}>
+          <Ionicons name="camera-outline" size={16} color={getColor('textPrimary')} />
+        </TouchableOpacity>
+        
+        {/* Premium Badge */}
+        <View style={styles.premiumBadge}>
+          <Ionicons name="star-outline" size={12} color="#FFD700" />
+        </View>
+      </Animated.View>
+      
+      <View style={styles.profileInfo}>
+        <Text style={[styles.personalName, { color: getColor('textPrimary') }]}>
+          {profileData.personalName}
+        </Text>
+        <Text style={[styles.username, { color: getColor('textSecondary') }]}>
+          @{profileData.username}
+        </Text>
+        
+        {/* Social Score */}
+        <View style={styles.socialScoreContainer}>
+          <Ionicons name="star-outline" size={14} color="#FFD700" />
+          <Text style={[styles.socialScore, { color: '#FFD700' }]}>
+            {profileData.socialScore} Social Score
+          </Text>
+        </View>
+        
+        <Text style={[styles.bio, { color: getColor('textPrimary') }]}>
+          {profileData.bio}
+        </Text>
+        
+        <View style={styles.locationContainer}>
+          <Ionicons name="location-outline" size={14} color={getColor('textSecondary')} />
+          <Text style={[styles.location, { color: getColor('textSecondary') }]}>
+            {profileData.location}
+          </Text>
+        </View>
+        
+        {/* Badges */}
+        <View style={styles.badgesContainer}>
+          {profileData.badges.map((badge, index) => (
+            <View key={index} style={[styles.badge, { backgroundColor: getColor('surface') }]}>
+              <Ionicons name="star-outline" size={12} color={getColor('success')} />
+              <Text style={[styles.badgeText, { color: getColor('textPrimary') }]}>
+                {badge}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
 
-  const renderTopActions = () => (
-    <View style={styles.topActionsContainer}>
-      {topActions.map((action) => (
+  const renderStats = () => (
+    <Animated.View style={[styles.statsContainer, { opacity: statsOpacity }]}>
+      <Card style={styles.statCard}>
+        <Text style={[styles.statNumber, { color: getColor('textPrimary') }]}>
+          {formatNumber(profileData.postsCount)}
+        </Text>
+        <Text style={[styles.statLabel, { color: getColor('textSecondary') }]}>
+          Posts
+        </Text>
+      </Card>
+      
+      <Card style={styles.statCard}>
+        <Text style={[styles.statNumber, { color: getColor('textPrimary') }]}>
+          {formatNumber(profileData.followersCount)}
+        </Text>
+        <Text style={[styles.statLabel, { color: getColor('textSecondary') }]}>
+          Followers
+        </Text>
+      </Card>
+      
+      <Card style={styles.statCard}>
+        <Text style={[styles.statNumber, { color: getColor('textPrimary') }]}>
+          {formatNumber(profileData.followingCount)}
+        </Text>
+        <Text style={[styles.statLabel, { color: getColor('textSecondary') }]}>
+          Following
+        </Text>
+      </Card>
+    </Animated.View>
+  );
+
+  const renderTabBar = () => (
+    <View style={styles.tabBar}>
+      {[
+        { key: 'posts', label: 'Posts', icon: 'grid' as const },
+        { key: 'comments', label: 'Comments', icon: 'chatbubbles' as const },
+        { key: 'achievements', label: 'Achievements', icon: 'star' as const },
+      ].map((tab) => (
         <TouchableOpacity
-          key={action.id}
-          style={[styles.topActionButton, { backgroundColor: theme.colors.glass.primary }]}
-          onPress={action.onPress}
-          activeOpacity={0.7}
+          key={tab.key}
+          style={[
+            styles.tabButton,
+            activeTab === tab.key && { backgroundColor: getColor('success') }
+          ]}
+          onPress={() => setActiveTab(tab.key as any)}
         >
-          <action.icon size={24} color={action.color} />
-          <Text style={[styles.topActionText, { color: theme.colors.text.primary }]}>
-            {action.title}
+          <Ionicons
+            name={tab.icon}
+            size={18} 
+            color={activeTab === tab.key ? getColor('textPrimary') : getColor('textSecondary')} 
+          />
+          <Text style={[
+            styles.tabLabel,
+            { color: activeTab === tab.key ? getColor('textPrimary') : getColor('textSecondary') }
+          ]}>
+            {tab.label}
           </Text>
         </TouchableOpacity>
       ))}
     </View>
   );
 
-  const renderProfileHeader = () => (
-    <View style={styles.profileHeader}>
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatar}>{profileData.avatar}</Text>
-        <View style={[styles.onlineIndicator, { backgroundColor: theme.colors.status.success }]} />
-      </View>
-      
-      <Text style={[styles.name, { color: theme.colors.text.primary }]}>
-        {profileData.personalName}
-      </Text>
-      
-      <Text style={[styles.bio, { color: theme.colors.text.secondary }]}>
-        {profileData.bio}
-      </Text>
-      
-      <View style={styles.locationContainer}>
-        <MapPin size={16} color={theme.colors.text.tertiary} />
-        <Text style={[styles.location, { color: theme.colors.text.tertiary }]}>
-          {profileData.location}
-        </Text>
-      </View>
-      
-      {user?.email && (
-        <Text style={[styles.email, { color: theme.colors.text.tertiary }]}>
-          📧 {user.email}
-        </Text>
-      )}
-    </View>
-  );
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'posts':
+        return renderPosts();
+      case 'comments':
+        return renderComments();
+      case 'achievements':
+        return renderAchievements();
+      default:
+        return renderPosts();
+    }
+  };
 
-  const renderStats = () => (
-    <View style={styles.statsContainer}>
-      <View style={[styles.statItem, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={styles.statIcon}>📱</Text>
-        <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>
-          {profileData.postsCount}
-        </Text>
-        <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>
-          Posts
-        </Text>
-      </View>
-      <View style={[styles.statItem, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={styles.statIcon}>👥</Text>
-        <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>
-          {profileData.followersCount}
-        </Text>
-        <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>
-          Followers
-        </Text>
-      </View>
-      <View style={[styles.statItem, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={styles.statIcon}>👤</Text>
-        <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>
-          {profileData.followingCount}
-        </Text>
-        <Text style={[styles.statLabel, { color: theme.colors.text.tertiary }]}>
-          Following
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderUserContent = () => (
-    <View style={styles.sectionContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-        My Recent Posts
-      </Text>
+  const renderPosts = () => (
+    <View style={styles.contentSection}>
       {loadingContent ? (
-        <ActivityIndicator size="small" color={theme.colors.neural.primary} />
+        <Spinner size="large" color={getColor('success')} />
       ) : userPosts.length > 0 ? (
         userPosts.map((post) => (
-          <View key={post.id} style={[styles.contentCard, { backgroundColor: theme.colors.glass.secondary }]}>
-            <Text style={[styles.contentText, { color: theme.colors.text.secondary }]}>
+          <Card key={post.id} style={styles.postItem}>
+            <Text style={[styles.postContent, { color: getColor('textPrimary') }]}>
               {post.content}
             </Text>
-            <View style={styles.contentMeta}>
-              <Text style={[styles.contentTime, { color: theme.colors.text.tertiary }]}>
-                {new Date(post.created_at).toLocaleDateString()}
+            <View style={styles.postMeta}>
+              <Text style={[styles.postTime, { color: getColor('textSecondary') }]}>
+                {formatTimeAgo(post.created_at)}
               </Text>
-              <View style={styles.contentStats}>
-                <Text style={[styles.contentStat, { color: theme.colors.text.tertiary }]}>
-                  ❤️ {post.like_count}
+              <View style={styles.postStats}>
+                <Ionicons name="heart-outline" size={14} color={getColor('textSecondary')} />
+                <Text style={[styles.postStatText, { color: getColor('textSecondary') }]}>
+                  {formatNumber(post.like_count || 0)}
                 </Text>
-                <Text style={[styles.contentStat, { color: theme.colors.text.tertiary }]}>
-                  💬 {post.comment_count}
+                <Ionicons name="chatbubble-outline" size={14} color={getColor('textSecondary')} />
+                <Text style={[styles.postStatText, { color: getColor('textSecondary') }]}>
+                  {formatNumber(post.comment_count || 0)}
                 </Text>
               </View>
             </View>
-          </View>
+          </Card>
         ))
       ) : (
-        <Text style={[styles.emptyText, { color: theme.colors.text.tertiary }]}>
-          No posts yet. Share something with your neighborhood!
-        </Text>
+        <EmptyState
+          icon="people-outline"
+          title="No posts yet 🫥"
+          subtitle="Share your first post with the community!"
+          cta={{
+            text: "Create Your First Post",
+            onPress: () => router.push('/(tabs)')
+          }}
+        />
       )}
     </View>
   );
 
-  const renderUserComments = () => (
-    <View style={styles.sectionContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-        My Recent Comments
-      </Text>
-      {loadingContent ? (
-        <ActivityIndicator size="small" color={theme.colors.neural.primary} />
-      ) : userComments.length > 0 ? (
+  const renderComments = () => (
+    <View style={styles.contentSection}>
+      {userComments.length > 0 ? (
         userComments.map((comment) => (
-          <View key={comment.id} style={[styles.contentCard, { backgroundColor: theme.colors.glass.secondary }]}>
-            <Text style={[styles.contentText, { color: theme.colors.text.secondary }]}>
-              "{comment.text}"
+          <Card key={comment.id} style={styles.commentItem}>
+            <Text style={[styles.commentContent, { color: getColor('textPrimary') }]}>
+              {comment.content}
             </Text>
-            <Text style={[styles.commentOnText, { color: theme.colors.text.tertiary }]}>
-              on: {comment.post?.[0]?.content?.substring(0, 50)}...
+            <Text style={[styles.commentTime, { color: getColor('textSecondary') }]}>
+              {formatTimeAgo(comment.created_at)}
             </Text>
-            <Text style={[styles.contentTime, { color: theme.colors.text.tertiary }]}>
-              {new Date(comment.created_at).toLocaleDateString()}
-            </Text>
-          </View>
+          </Card>
         ))
       ) : (
-        <Text style={[styles.emptyText, { color: theme.colors.text.tertiary }]}>
-          No comments yet. Start engaging with your community!
-        </Text>
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="No comments yet 💬"
+          subtitle="Start engaging with the community!"
+        />
       )}
     </View>
   );
 
-  const renderActionSection = (title: string, actions: any[]) => (
-    <View style={styles.sectionContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-        {title}
-      </Text>
-      <View style={styles.actionGrid}>
-        {actions.map((action) => (
-          <TouchableOpacity
-            key={action.id}
-            style={[styles.actionCard, { backgroundColor: theme.colors.glass.primary }]}
-            onPress={action.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-              <action.icon size={20} color="white" />
+  const renderAchievements = () => (
+    <View style={styles.contentSection}>
+      <View style={styles.achievementsGrid}>
+        {[
+          { title: 'Early Adopter', icon: 'star', color: '#FFD700', description: 'Joined in the first month' },
+          { title: 'Community Builder', icon: 'people', color: '#4CAF50', description: 'Helped grow the community' },
+          { title: 'Active Member', icon: 'people', color: '#2196F3', description: 'Consistent engagement' },
+          { title: 'Influencer', icon: 'star', color: '#9C27B0', description: 'High social impact' },
+        ].map((achievement, index) => (
+          <Card key={index} style={styles.achievementCard}>
+            <View style={[styles.achievementIcon, { backgroundColor: achievement.color + '20' }]}>
+              <Ionicons name={achievement.icon as any} size={24} color={achievement.color} />
             </View>
-            <Text style={[styles.actionTitle, { color: theme.colors.text.primary }]}>
-              {action.title}
+            <Text style={[styles.achievementTitle, { color: getColor('textPrimary') }]}>
+              {achievement.title}
             </Text>
-          </TouchableOpacity>
+            <Text style={[styles.achievementDescription, { color: getColor('textSecondary') }]}>
+              {achievement.description}
+            </Text>
+          </Card>
         ))}
       </View>
     </View>
   );
 
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: getColor('bg') }]}>
+        <Spinner size="large" color={getColor('success')} />
+        <Text style={[styles.loadingText, { color: getColor('textPrimary') }]}>
+          Loading your profile...
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      <HoodlyLayout
-        neighborhoodName="Downtown West"
-        activeNeighbors={47}
-        communityHealth={94}
-        socialScore={8.4}
-        eventsToday={23}
+      <Animated.ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        <ScrollView 
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          }
-        >
-          {/* Top Action Buttons */}
-          {renderTopActions()}
-          
-          {/* Profile Header */}
-          {renderProfileHeader()}
-          
-          {/* Stats */}
-          {renderStats()}
-          
-          {/* User Content */}
-          {renderUserContent()}
-          {renderUserComments()}
-          
-          {/* Quick Actions */}
-          {renderActionSection('Quick Actions', quickActions)}
-          
-          {/* App Features */}
-          {renderActionSection('My Content', appFeatures)}
-          
-          {/* App Settings */}
-          {renderActionSection('Settings', appSettings)}
-        </ScrollView>
-      </HoodlyLayout>
+        {renderPremiumHeader()}
+        {renderHeroSection()}
+        {renderStats()}
+        {renderTabBar()}
+        {renderContent()}
+      </Animated.ScrollView>
 
-      {/* Profile Customization Modal */}
-      <ProfileCustomization
-        isVisible={showProfileCustomization}
-        onClose={() => setShowProfileCustomization(false)}
-        onSave={handleProfileSave}
-        initialData={profileData}
+      <GradientFAB
+        icon="add-circle-outline"
+        onPress={() => router.push('/(tabs)')}
       />
-    </View>
+
+      {showProfileCustomization && (
+        <ProfileCustomization
+          isVisible={showProfileCustomization}
+          onClose={() => setShowProfileCustomization(false)}
+          onSave={handleProfileSave}
+          initialData={profileData}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -684,101 +637,176 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 120, // Space for tab bar
-  },
-  topActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 12,
-  },
-  topActionButton: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+  },
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  headerBlur: {
+    flex: 1,
+  },
+  headerGradient: {
+    flex: 1,
+    opacity: 0.8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  topActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  profileHeader: {
+  heroSection: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingTop: 100,
     paddingBottom: 24,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   avatar: {
-    fontSize: 80,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
-  onlineIndicator: {
+  avatarBorder: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: 'white',
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderRadius: 63,
+    opacity: 0.8,
   },
-  name: {
-    fontSize: 24,
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  profileInfo: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  personalName: {
+    fontSize: 28,
     fontWeight: '700',
+    marginBottom: 4,
+  },
+  username: {
+    fontSize: 18,
     marginBottom: 8,
-    textAlign: 'center',
+    opacity: 0.8,
+  },
+  socialScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  socialScore: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   bio: {
     fontSize: 16,
     textAlign: 'center',
+    lineHeight: 24,
     marginBottom: 12,
-    lineHeight: 22,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   location: {
     fontSize: 14,
     marginLeft: 4,
   },
-  email: {
-    fontSize: 14,
+  badgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    marginBottom: 24,
   },
-  statItem: {
-    alignItems: 'center',
+  statCard: {
+    flex: 1,
+    marginHorizontal: 4,
     paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    minWidth: 80,
+    alignItems: 'center',
   },
-  statIcon: {
+  statNumber: {
     fontSize: 24,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
   },
@@ -786,93 +814,93 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  sectionContainer: {
+  tabBar: {
+    flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 18,
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  tabLabel: {
+    fontSize: 14,
     fontWeight: '600',
+  },
+  contentSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  postItem: {
     marginBottom: 16,
   },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    width: (width - 64) / 2,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  actionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  followButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  followText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  contentCard: {
-    padding: 16,
-    borderRadius: 12,
+  postContent: {
+    fontSize: 16,
+    lineHeight: 24,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  contentText: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  commentOnText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  contentMeta: {
+  postMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  contentTime: {
+  postTime: {
     fontSize: 12,
   },
-  contentStats: {
+  postStats: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
   },
-  contentStat: {
+  postStatText: {
+    fontSize: 12,
+    marginLeft: 4,
+    marginRight: 12,
+  },
+  commentItem: {
+    marginBottom: 16,
+  },
+  commentContent: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  commentTime: {
     fontSize: 12,
   },
-  emptyText: {
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  achievementCard: {
+    width: '48%',
+    marginBottom: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  achievementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  achievementTitle: {
     fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
     textAlign: 'center',
-    fontStyle: 'italic',
-    paddingVertical: 20,
+  },
+  achievementDescription: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

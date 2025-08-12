@@ -44,7 +44,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
   onContact,
   onUserPress,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
 
   const getCategoryEmoji = (category: string) => {
     const emojiMap: Record<string, string> = {
@@ -63,13 +63,13 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
 
   const getConditionColor = (condition: string) => {
     const colorMap: Record<string, string> = {
-      new: theme.colors.status.success,
-      like_new: theme.colors.status.info,
-      good: theme.colors.status.warning,
-      fair: theme.colors.status.error,
-      poor: theme.colors.text.tertiary
+      new: colors.status.success,
+      like_new: colors.status.info,
+      good: colors.status.warning,
+      fair: colors.status.error,
+      poor: colors.text.tertiary
     };
-    return colorMap[condition] || theme.colors.text.tertiary;
+    return colorMap[condition] || colors.text.tertiary;
   };
 
   const formatPrice = (price: number) => {
@@ -90,8 +90,8 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
   return (
     <TouchableOpacity 
       style={[styles.container, { 
-        backgroundColor: theme.colors.glass.primary,
-        borderColor: theme.colors.glass.border,
+        backgroundColor: colors.glass.primary,
+        borderColor: colors.glass.border,
       }]}
       onPress={() => onPress?.(listing.id)}
     >
@@ -100,9 +100,9 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
         {listing.images.length > 0 ? (
           <Image source={{ uri: listing.images[0] }} style={styles.listingImage} />
         ) : (
-          <View style={[styles.placeholderImage, { backgroundColor: theme.colors.glass.secondary }]}>
-            <Text style={[styles.placeholderText, { color: theme.colors.text.tertiary }]}>
-              {getCategoryEmoji(listing.category)}
+          <View style={[styles.placeholderImage, { backgroundColor: colors.glass.secondary }]}>
+            <Text style={[styles.placeholderText, { color: colors.text.tertiary }]}>
+              📷
             </Text>
           </View>
         )}
@@ -111,10 +111,10 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
         {listing.status !== 'active' && (
           <View style={[styles.statusBadge, { 
             backgroundColor: listing.status === 'sold' 
-              ? theme.colors.status.error 
-              : theme.colors.status.warning 
+              ? colors.status.error 
+              : colors.status.warning 
           }]}>
-            <Text style={[styles.statusText, { color: theme.colors.text.inverse }]}>
+            <Text style={[styles.statusText, { color: colors.text.inverse }]}>
               {listing.status.toUpperCase()}
             </Text>
           </View>
@@ -123,23 +123,23 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
         {/* Save Button */}
         <TouchableOpacity 
           style={[styles.saveButton, { 
-            backgroundColor: theme.colors.glass.overlay 
+            backgroundColor: colors.glass.overlay 
           }]}
           onPress={() => onSave?.(listing.id)}
         >
           <Heart 
             size={20} 
-            color={listing.isSaved ? theme.colors.status.error : theme.colors.text.primary}
-            fill={listing.isSaved ? theme.colors.status.error : 'none'}
+            color={listing.isSaved ? colors.status.error : colors.text.primary}
+            fill={listing.isSaved ? colors.status.error : 'none'}
           />
         </TouchableOpacity>
         
         {/* Multiple Images Indicator */}
         {listing.images.length > 1 && (
           <View style={[styles.imageCount, { 
-            backgroundColor: theme.colors.glass.overlay 
+            backgroundColor: colors.glass.overlay 
           }]}>
-            <Text style={[styles.imageCountText, { color: theme.colors.text.primary }]}>
+            <Text style={[styles.imageCountText, { color: colors.text.primary }]}>
               +{listing.images.length - 1}
             </Text>
           </View>
@@ -150,7 +150,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.priceContainer}>
-            <Text style={[styles.price, { color: theme.colors.neural.primary }]}>
+            <Text style={[styles.price, { color: colors.neural.primary }]}>
               {formatPrice(listing.price)}
             </Text>
             <View style={[styles.conditionBadge, { 
@@ -164,36 +164,36 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
           </View>
           
           <View style={[styles.categoryBadge, { 
-            backgroundColor: theme.colors.glass.secondary 
+            backgroundColor: colors.glass.secondary 
           }]}>
-            <Text style={[styles.categoryText, { color: theme.colors.text.secondary }]}>
+            <Text style={[styles.categoryText, { color: colors.text.secondary }]}>
               {getCategoryEmoji(listing.category)} {listing.category}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+        <Text style={[styles.title, { color: colors.text.primary }]}>
           {listing.title}
         </Text>
 
-        <Text style={[styles.description, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.description, { color: colors.text.secondary }]}>
           {listing.description}
         </Text>
 
         {/* Location and Stats */}
         <View style={styles.details}>
           <View style={styles.detailItem}>
-            <MapPin size={14} color={theme.colors.text.tertiary} />
-            <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+            <MapPin size={14} color={colors.text.tertiary} />
+            <Text style={[styles.detailText, { color: colors.text.secondary }]}>
               {listing.location}
             </Text>
           </View>
           
           <View style={styles.stats}>
-            <Text style={[styles.statText, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.statText, { color: colors.text.tertiary }]}>
               {listing.views} views
             </Text>
-            <Text style={[styles.statText, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.statText, { color: colors.text.tertiary }]}>
               {listing.saves} saves
             </Text>
           </View>
@@ -204,15 +204,15 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
           <View style={styles.tagsContainer}>
             {listing.tags.slice(0, 3).map((tag, index) => (
               <View key={index} style={[styles.tag, { 
-                backgroundColor: theme.colors.glass.secondary 
+                backgroundColor: colors.glass.secondary 
               }]}>
-                <Text style={[styles.tagText, { color: theme.colors.text.secondary }]}>
+                <Text style={[styles.tagText, { color: colors.text.secondary }]}>
                   #{tag}
                 </Text>
               </View>
             ))}
             {listing.tags.length > 3 && (
-              <Text style={[styles.moreTags, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.moreTags, { color: colors.text.tertiary }]}>
                 +{listing.tags.length - 3} more
               </Text>
             )}
@@ -221,20 +221,20 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
       </View>
 
       {/* Action Buttons */}
-      <View style={[styles.actions, { borderTopColor: theme.colors.glass.border }]}>
+      <View style={[styles.actions, { borderTopColor: colors.glass.border }]}>
         <TouchableOpacity 
           style={[styles.contactButton, { 
-            backgroundColor: theme.colors.neural.primary 
+            backgroundColor: colors.neural.primary 
           }]}
           onPress={() => onContact?.(listing.id)}
         >
-          <MessageCircle size={16} color={theme.colors.text.inverse} />
-          <Text style={[styles.contactButtonText, { color: theme.colors.text.inverse }]}>
+          <MessageCircle size={16} color={colors.text.inverse} />
+          <Text style={[styles.contactButtonText, { color: colors.text.inverse }]}>
             Contact
           </Text>
         </TouchableOpacity>
         
-        <Text style={[styles.timestamp, { color: theme.colors.text.tertiary }]}>
+        <Text style={[styles.timestamp, { color: colors.text.tertiary }]}>
           {formatTime(listing.createdAt)}
         </Text>
       </View>

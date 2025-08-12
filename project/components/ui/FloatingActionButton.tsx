@@ -1,157 +1,140 @@
 import React, { useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Animated,
-  Dimensions,
-} from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Animated, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Plus, Camera, Edit, MapPin } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
-const { width } = Dimensions.get('window');
-
-interface ActionItem {
-  id: string;
-  title: string;
-  icon: string;
-  route: string;
-  color: string;
+interface FloatingActionButtonProps {
+  onPress?: () => void;
+  variant?: 'primary' | 'secondary' | 'camera';
+  size?: 'small' | 'medium' | 'large';
+  icon?: React.ReactNode;
+  label?: string;
 }
 
-const actionItems: ActionItem[] = [
-  {
-    id: 'events',
-    title: 'Events',
-    icon: '🎉',
-    route: '/events',
-    color: '#FF6B9D',
-  },
-  {
-    id: 'marketplace',
-    title: 'Marketplace',
-    icon: '🛍️',
-    route: '/marketplace',
-    color: '#4ECDC4',
-  },
-  {
-    id: 'groups',
-    title: 'Groups',
-    icon: '👥',
-    route: '/groups',
-    color: '#45B7D1',
-  },
-  {
-    id: 'map',
-    title: 'Map',
-    icon: '🗺️',
-    route: '/map',
-    color: '#96CEB4',
-  },
-  {
-    id: 'safety',
-    title: 'Safety',
-    icon: '🛡️',
-    route: '/safety',
-    color: '#FFE66D',
-  },
-];
+export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
+  onPress,
+  variant = 'primary',
+  size = 'medium',
+  icon,
+  label,
+}) => {
+  const { colors } = useTheme();
+  const [isPressed, setIsPressed] = useState(false);
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
-export const FloatingActionButton: React.FC = () => {
-  const { theme } = useTheme();
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [animation] = useState(new Animated.Value(0));
-
-  const toggleExpanded = () => {
-    const toValue = isExpanded ? 0 : 1;
-    setIsExpanded(!isExpanded);
-    
-    Animated.spring(animation, {
-      toValue,
+  const handlePressIn = () => {
+    setIsPressed(true);
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
     }).start();
   };
 
-  const handleActionPress = (item: ActionItem) => {
-    setIsExpanded(false);
-    Animated.spring(animation, {
-      toValue: 0,
+  const handlePressOut = () => {
+    setIsPressed(false);
+    Animated.spring(scaleAnim, {
+      toValue: 1,
       useNativeDriver: true,
+      tension: 100,
+      friction: 8,
     }).start();
-    
-    // Navigate to the route
-    router.push(item.route as any);
   };
 
+  const getSize = () => {
+    switch (size) {
+      case 'small':
+        return 48;
+      case 'large':
+        return 72;
+      default:
+        return 56;
+    }
+  };
+
+  const getIcon = () => {
+    if (icon) return icon;
+    
+    switch (variant) {
+      case 'camera':
+        return <Camera size={24} color={colors.text.inverse} />;
+      case 'secondary':
+        return <Edit size={24} color={colors.text.primary} />;
+      default:
+        return <Plus size={24} color={colors.text.inverse} />;
+    }
+  };
+
+  const getGradientColors = () => {
+    switch (variant) {
+      case 'camera':
+        return [colors.status.error, colors.status.warning];
+      case 'secondary':
+        return [colors.glass.primary, colors.glass.secondary];
+      default:
+        return [colors.neural.primary, colors.neural.secondary];
+    }
+  };
+
+  const buttonSize = getSize();
+
   return (
-    <View style={styles.container}>
-      {/* Action Items */}
-      {actionItems.map((item, index) => (
-        <Animated.View
-          key={item.id}
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[
+          styles.container,
+          {
+            width: buttonSize,
+            height: buttonSize,
+            borderRadius: buttonSize / 2,
+          },
+        ]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.8}
+      >
+        <BlurView
+          intensity={30}
           style={[
-            styles.actionItem,
+            styles.blurContainer,
             {
-              transform: [
-                {
-                  translateY: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -(index + 1) * 60],
-                  }),
-                },
-                {
-                  scale: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 1],
-                  }),
-                },
-              ],
-              opacity: animation,
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+              borderColor: colors.glass.border,
             },
           ]}
         >
-          <TouchableOpacity
+          <LinearGradient
+            colors={getGradientColors() as [string, string]}
             style={[
-              styles.actionButton,
-              { backgroundColor: item.color },
-            ]}
-            onPress={() => handleActionPress(item)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.actionIcon}>{item.icon}</Text>
-            <Text style={styles.actionTitle}>{item.title}</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      ))}
-
-      {/* Main FAB */}
-      <TouchableOpacity
-        style={[
-          styles.fab,
-          {
-            backgroundColor: theme.colors.neural.primary,
-            transform: [
+              styles.gradient,
               {
-                rotate: animation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '45deg'],
-                }),
+                width: buttonSize,
+                height: buttonSize,
+                borderRadius: buttonSize / 2,
               },
-            ],
-          },
-        ]}
-        onPress={toggleExpanded}
-        activeOpacity={0.8}
-      >
-        <BlurView intensity={20} style={styles.fabBlur}>
-          <Text style={styles.fabIcon}>+</Text>
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {getIcon()}
+          </LinearGradient>
         </BlurView>
+        
+        {label && (
+          <View style={styles.labelContainer}>
+            <Text style={[styles.label, { color: colors.text.primary }]}>
+              {label}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -160,58 +143,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 100,
     right: 20,
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  actionItem: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  actionIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  actionTitle: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
   },
-  fabBlur: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 28,
+  blurContainer: {
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  gradient: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fabIcon: {
-    fontSize: 24,
-    color: 'white',
-    fontWeight: 'bold',
+  labelContainer: {
+    position: 'absolute',
+    right: 70,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 }); 

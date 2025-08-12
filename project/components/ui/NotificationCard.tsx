@@ -1,16 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { getColor } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface NotificationCardProps {
   notification: {
     id: string;
-    type: string; // allow any string type
-    title: string;
-    message: string;
+    user_id: string;
+    type: string;
+    data?: {
+      sender_id?: string;
+      post_id?: string;
+      room_id?: string;
+      message?: string;
+    };
     is_read: boolean;
     created_at: string;
+    updated_at?: string;
     fromUser?: {
       id: string;
       personalName: string;
@@ -28,18 +34,18 @@ export default function NotificationCard({
   onPress, 
   onMarkRead 
 }: NotificationCardProps) {
-  const { theme } = useTheme();
-
   const getNotificationIcon = () => {
     switch (notification.type) {
       case 'like':
         return { name: 'heart', color: '#ff4757' };
-      case 'dm':
+      case 'message':
         return { name: 'chatbubble', color: '#3742fa' };
       case 'friend_request':
         return { name: 'people', color: '#2ed573' };
       case 'comment':
         return { name: 'chatbubble-ellipses', color: '#ffa502' };
+      case 'follow':
+        return { name: 'person-add', color: '#3742fa' };
       default:
         return { name: 'notifications', color: '#747d8c' };
     }
@@ -48,15 +54,34 @@ export default function NotificationCard({
   const getNotificationColor = () => {
     switch (notification.type) {
       case 'like':
-        return theme.colors.status.error;
-      case 'dm':
-        return theme.colors.status.info;
+        return getColor('error');
+      case 'message':
+        return getColor('success');
       case 'friend_request':
-        return theme.colors.status.success;
+        return getColor('success');
       case 'comment':
-        return theme.colors.status.warning;
+        return getColor('warning');
+      case 'follow':
+        return getColor('success');
       default:
-        return theme.colors.neural.primary;
+        return getColor('success');
+    }
+  };
+
+  const getDefaultMessage = (type: string) => {
+    switch (type) {
+      case 'like':
+        return 'liked your post';
+      case 'comment':
+        return 'commented on your post';
+      case 'follow':
+        return 'started following you';
+      case 'message':
+        return 'sent you a message';
+      case 'friend_request':
+        return 'sent you a friend request';
+      default:
+        return 'interacted with your content';
     }
   };
 
@@ -88,8 +113,8 @@ export default function NotificationCard({
         styles.container,
         { 
           backgroundColor: notification.is_read 
-            ? theme.colors.glass.secondary 
-            : theme.colors.glass.primary,
+            ? getColor('surface') 
+            : getColor('surface'),
           borderLeftColor: accentColor,
           borderLeftWidth: notification.is_read ? 0 : 3
         }
@@ -119,28 +144,28 @@ export default function NotificationCard({
       {/* Content */}
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.title, { color: getColor('textPrimary') }]}>
             {notification.fromUser?.personalName || notification.fromUser?.username || 'Someone'}
           </Text>
-          <Text style={[styles.time, { color: theme.colors.text.tertiary }]}>
+          <Text style={[styles.time, { color: getColor('textTertiary') }]}>
             {formatTimeAgo(notification.created_at)}
           </Text>
         </View>
         
-        <Text style={[styles.message, { color: theme.colors.text.secondary }]}>
-          {notification.message}
+        <Text style={[styles.message, { color: getColor('textSecondary') }]}>
+          {notification.data?.message || getDefaultMessage(notification.type)}
         </Text>
 
         {/* Metadata preview */}
         {notification.metadata && (
           <View style={styles.metadata}>
-            {notification.type === 'dm' && notification.metadata.message && (
-              <Text style={[styles.metadataText, { color: theme.colors.text.tertiary }]}>
+            {notification.type === 'message' && notification.metadata.message && (
+              <Text style={[styles.metadataText, { color: getColor('textTertiary') }]}>
                 "{notification.metadata.message}"
               </Text>
             )}
             {notification.type === 'comment' && notification.metadata.comment && (
-              <Text style={[styles.metadataText, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.metadataText, { color: getColor('textTertiary') }]}>
                 "{notification.metadata.comment}"
               </Text>
             )}
@@ -155,13 +180,13 @@ export default function NotificationCard({
 
       {/* Action button */}
       <TouchableOpacity
-        style={[styles.actionButton, { backgroundColor: theme.colors.glass.primary }]}
+        style={[styles.actionButton, { backgroundColor: getColor('surface') }]}
         onPress={() => onMarkRead?.(notification.id)}
       >
         <Ionicons 
           name={notification.is_read ? "checkmark-circle" : "checkmark-circle-outline"} 
           size={20} 
-          color={notification.is_read ? theme.colors.status.success : theme.colors.text.secondary} 
+          color={notification.is_read ? getColor('success') : getColor('textSecondary')} 
         />
       </TouchableOpacity>
     </TouchableOpacity>

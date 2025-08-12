@@ -70,111 +70,18 @@ const GROUP_CATEGORIES = [
   { id: 'business', label: 'Business', icon: '💼', color: '#8b5cf6' },
 ];
 
-const SAMPLE_GROUPS: NeighborhoodGroup[] = [
-  {
-    id: '1',
-    name: 'Downtown Coffee Lovers',
-    description: 'A community for coffee enthusiasts to share recommendations, meet up for coffee, and discuss everything coffee-related.',
-    category: 'social',
-    memberCount: 247,
-    maxMembers: 500,
-    isPrivate: false,
-    avatar: '☕',
-    tags: ['Coffee', 'Social', 'Meetups'],
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-    members: [
-      { id: '1', name: 'Sarah Chen', avatar: '👩‍💻', role: 'admin', joinedDate: new Date() },
-      { id: '2', name: 'Mike Rodriguez', avatar: '🏃‍♂️', role: 'member', joinedDate: new Date() },
-    ],
-    recentPosts: [
-      {
-        id: '1',
-        author: { id: '1', name: 'Sarah Chen', avatar: '👩‍💻', role: 'admin', joinedDate: new Date() },
-        content: 'Just discovered an amazing new coffee shop on 5th Street! Their cold brew is incredible. ☕',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        likes: 12,
-        comments: 3,
-      },
-    ],
-    rules: [
-      'Be respectful to all members',
-      'No spam or self-promotion',
-      'Keep discussions coffee-related',
-    ],
-  },
-  {
-    id: '2',
-    name: 'Downtown Runners Club',
-    description: 'Join us for morning runs, training sessions, and running events in the downtown area.',
-    category: 'fitness',
-    memberCount: 89,
-    maxMembers: 200,
-    isPrivate: false,
-    avatar: '🏃‍♂️',
-    tags: ['Running', 'Fitness', 'Training'],
-    createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
-    members: [
-      { id: '2', name: 'Mike Rodriguez', avatar: '🏃‍♂️', role: 'admin', joinedDate: new Date() },
-    ],
-    recentPosts: [
-      {
-        id: '2',
-        author: { id: '2', name: 'Mike Rodriguez', avatar: '🏃‍♂️', role: 'admin', joinedDate: new Date() },
-        content: 'Saturday morning run at 7 AM! Meeting at Central Park entrance. All levels welcome! 🏃‍♂️',
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
-        likes: 8,
-        comments: 5,
-      },
-    ],
-    rules: [
-      'All fitness levels welcome',
-      'Safety first - run with a buddy',
-      'Share your running achievements',
-    ],
-  },
-  {
-    id: '3',
-    name: 'Local Artists Collective',
-    description: 'A space for local artists to showcase their work, collaborate on projects, and share creative inspiration.',
-    category: 'creative',
-    memberCount: 156,
-    maxMembers: 300,
-    isPrivate: true,
-    avatar: '🎨',
-    tags: ['Art', 'Creative', 'Collaboration'],
-    createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
-    members: [
-      { id: '3', name: 'Emma Wilson', avatar: '👩‍🎨', role: 'admin', joinedDate: new Date() },
-    ],
-    recentPosts: [
-      {
-        id: '3',
-        author: { id: '3', name: 'Emma Wilson', avatar: '👩‍🎨', role: 'admin', joinedDate: new Date() },
-        content: 'Just finished this mural on 5th Street! What do you think? 🎨',
-        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-        likes: 23,
-        comments: 7,
-        media: 'mural.jpg',
-      },
-    ],
-    rules: [
-      'Respect copyright and intellectual property',
-      'Constructive feedback only',
-      'Share your creative process',
-    ],
-  },
-];
+  // Groups will be loaded from Supabase
 
 export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
   isVisible,
   onClose,
   onGroupSelect,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [filteredGroups, setFilteredGroups] = useState(SAMPLE_GROUPS);
+  const [filteredGroups, setFilteredGroups] = useState<NeighborhoodGroup[]>([]);
   
   const slideAnimation = useRef(new Animated.Value(height)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
@@ -216,7 +123,7 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
   }, [searchQuery, selectedCategory]);
 
   const filterGroups = () => {
-    let filtered = SAMPLE_GROUPS;
+    let filtered: NeighborhoodGroup[] = [];
 
     // Filter by category
     if (selectedCategory !== 'all') {
@@ -237,7 +144,7 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
 
   const renderGroupCard = ({ item }: { item: NeighborhoodGroup }) => (
     <TouchableOpacity
-      style={[styles.groupCard, { backgroundColor: theme.colors.glass.primary }]}
+      style={[styles.groupCard, { backgroundColor: colors.glass.primary }]}
       onPress={() => onGroupSelect(item)}
       activeOpacity={0.7}
     >
@@ -247,34 +154,34 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
         </View>
         <View style={styles.groupInfo}>
           <View style={styles.groupTitleRow}>
-            <Text style={[styles.groupName, { color: theme.colors.text.primary }]}>
+            <Text style={[styles.groupName, { color: colors.text.primary }]}>
               {item.name}
             </Text>
             {item.isPrivate && (
-              <View style={[styles.privateBadge, { backgroundColor: theme.colors.status.warning }]}>
-                <Text style={[styles.privateText, { color: theme.colors.text.inverse }]}>
+              <View style={[styles.privateBadge, { backgroundColor: colors.status.warning }]}>
+                <Text style={[styles.privateText, { color: colors.text.inverse }]}>
                   Private
                 </Text>
               </View>
             )}
           </View>
-          <Text style={[styles.groupCategory, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.groupCategory, { color: colors.text.secondary }]}>
             {GROUP_CATEGORIES.find(cat => cat.id === item.category)?.label}
           </Text>
-          <Text style={[styles.groupMembers, { color: theme.colors.text.tertiary }]}>
+          <Text style={[styles.groupMembers, { color: colors.text.tertiary }]}>
             {item.memberCount} members • {item.maxMembers} max
           </Text>
         </View>
       </View>
 
-      <Text style={[styles.groupDescription, { color: theme.colors.text.secondary }]}>
+      <Text style={[styles.groupDescription, { color: colors.text.secondary }]}>
         {item.description}
       </Text>
 
       <View style={styles.groupTags}>
         {item.tags.map((tag, index) => (
-          <View key={index} style={[styles.tagChip, { backgroundColor: theme.colors.glass.secondary }]}>
-            <Text style={[styles.tagText, { color: theme.colors.text.secondary }]}>
+          <View key={index} style={[styles.tagChip, { backgroundColor: colors.glass.secondary }]}>
+            <Text style={[styles.tagText, { color: colors.text.secondary }]}>
               {tag}
             </Text>
           </View>
@@ -283,16 +190,16 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
 
       {item.recentPosts.length > 0 && (
         <View style={styles.recentActivity}>
-          <Text style={[styles.activityTitle, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.activityTitle, { color: colors.text.secondary }]}>
             Recent Activity
           </Text>
           <View style={styles.activityItem}>
             <Text style={styles.activityAvatar}>{item.recentPosts[0].author.avatar}</Text>
             <View style={styles.activityContent}>
-              <Text style={[styles.activityText, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.activityText, { color: colors.text.secondary }]}>
                 {item.recentPosts[0].content}
               </Text>
-              <Text style={[styles.activityTime, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.activityTime, { color: colors.text.tertiary }]}>
                 {formatTimeAgo(item.recentPosts[0].timestamp)}
               </Text>
             </View>
@@ -302,18 +209,18 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
 
       <View style={styles.groupActions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.colors.gradients.neural[0] }]}
+          style={[styles.actionButton, { backgroundColor: colors.neural.primary }]}
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionText, { color: theme.colors.text.inverse }]}>
+          <Text style={[styles.actionText, { color: colors.text.inverse }]}>
             Join Group
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.colors.glass.secondary }]}
+          style={[styles.actionButton, { backgroundColor: colors.glass.secondary }]}
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionText, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.actionText, { color: colors.text.primary }]}>
             View Details
           </Text>
         </TouchableOpacity>
@@ -345,37 +252,37 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
               styles.modalContainer,
               {
                 transform: [{ translateY: slideAnimation }],
-                backgroundColor: theme.colors.neural.background,
+                backgroundColor: colors.neural.background,
               },
             ]}
           >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+                <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
                 Neighborhood Groups
               </Text>
               <TouchableOpacity 
                 onPress={() => setShowCreateGroup(true)} 
-                style={[styles.createButton, { backgroundColor: theme.colors.gradients.neural[0] }]}
+                style={[styles.createButton, { backgroundColor: colors.neural.primary }]}
               >
-                <Text style={[styles.createText, { color: theme.colors.text.inverse }]}>
+                <Text style={[styles.createText, { color: colors.text.inverse }]}>
                   Create
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
-            <View style={[styles.searchContainer, { backgroundColor: theme.colors.glass.primary }]}>
+            <View style={[styles.searchContainer, { backgroundColor: colors.glass.primary }]}>
               <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
-                style={[styles.searchInput, { color: theme.colors.text.primary }]}
+                style={[styles.searchInput, { color: colors.text.primary }]}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search groups..."
-                placeholderTextColor={theme.colors.text.tertiary}
+                placeholderTextColor={colors.text.tertiary}
               />
             </View>
 
@@ -390,7 +297,7 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
                   key={category.id}
                   style={[
                     styles.categoryChip,
-                    { backgroundColor: theme.colors.glass.primary },
+                    { backgroundColor: colors.glass.primary },
                     selectedCategory === category.id && {
                       backgroundColor: category.color,
                     },
@@ -402,8 +309,8 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
                   <Text
                     style={[
                       styles.categoryLabel,
-                      { color: theme.colors.text.primary },
-                      selectedCategory === category.id && { color: theme.colors.text.inverse },
+                      { color: colors.text.primary },
+                      selectedCategory === category.id && { color: colors.text.inverse },
                     ]}
                   >
                     {category.label}
@@ -422,10 +329,10 @@ export const NeighborhoodGroups: React.FC<NeighborhoodGroupsProps> = ({
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyIcon}>🏘️</Text>
-                  <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+                  <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
                     No groups found
                   </Text>
-                  <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+                  <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                     Try adjusting your search or create a new group
                   </Text>
                 </View>

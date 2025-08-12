@@ -10,16 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  Bell, 
-  MapPin, 
-  Users, 
-  TrendingUp, 
-  Zap,
-  Search,
-  Filter
-} from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 import { SearchBar } from './SearchBar';
 
 const { width } = Dimensions.get('window');
@@ -38,6 +30,22 @@ interface HoodlyLayoutProps {
   onAIPress?: () => void;
 }
 
+interface FilterState {
+  category: string;
+  proximity: string;
+  date: string;
+  search: string;
+}
+
+interface ContentItem {
+  id: string;
+  category?: string;
+  proximity?: string;
+  created_at?: string;
+  title?: string;
+  description?: string;
+}
+
 export const HoodlyLayout: React.FC<HoodlyLayoutProps> = ({
   children,
   neighborhoodName = 'Hoodly',
@@ -51,62 +59,120 @@ export const HoodlyLayout: React.FC<HoodlyLayoutProps> = ({
   onNotificationPress,
   onAIPress,
 }) => {
-  const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<FilterState>({
+    category: '',
+    proximity: '',
+    date: '',
+    search: ''
+  });
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [filteredContent, setFilteredContent] = useState<ContentItem[]>([]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     onSearch?.(query);
   };
 
-  const handleFilter = () => {
-    // TODO: Implement filter functionality
-    console.log('Filter pressed');
+  // Implement filter functionality
+  const handleFilterChange = (filterType: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+    
+    // Apply filters to content
+    applyFilters(filterType, value);
+  };
+  
+  const applyFilters = (filterType: string, value: any) => {
+    // Apply filters based on type
+    switch (filterType) {
+      case 'category':
+        setFilteredContent(content.filter(item => 
+          !value || item.category === value
+        ));
+        break;
+      case 'proximity':
+        setFilteredContent(content.filter(item => 
+          !value || item.proximity === value
+        ));
+        break;
+      case 'date':
+        if (value) {
+          const filterDate = new Date(value);
+          setFilteredContent(content.filter(item => 
+            !item.created_at || new Date(item.created_at) >= filterDate
+          ));
+        } else {
+          setFilteredContent(content);
+        }
+        break;
+      case 'search':
+        setFilteredContent(content.filter(item => 
+          !value || 
+          item.title?.toLowerCase().includes(value.toLowerCase()) ||
+          item.description?.toLowerCase().includes(value.toLowerCase())
+        ));
+        break;
+      default:
+        setFilteredContent(content);
+    }
+  };
+  
+  const clearFilters = () => {
+    setFilters({
+      category: '',
+      proximity: '',
+      date: '',
+      search: ''
+    });
+    setFilteredContent(content);
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Gradient */}
       <LinearGradient
         style={styles.backgroundGradient}
-        colors={theme.colors.gradients.neural as [string, string, string]}
+        colors={theme.gradients.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { backgroundColor: theme.colors.glass.overlay }]}>
+        <BlurView intensity={30} style={[styles.header, { backgroundColor: getColor('surface') }]}>
           <View style={styles.headerContent}>
             {/* Location and Stats */}
             <View style={styles.locationSection}>
               <View style={styles.locationRow}>
-                <MapPin size={16} color={theme.colors.text.primary} />
-                <Text style={[styles.neighborhoodName, { color: theme.colors.text.primary }]}>
+                <Ionicons name="location" size={16} color={getColor('textPrimary')} />
+                <Text style={[styles.neighborhoodName, { color: getColor('textPrimary') }]}>
                   {neighborhoodName}
                 </Text>
               </View>
               
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <Users size={12} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.statText, { color: theme.colors.text.tertiary }]}>
+                  <Ionicons name="people" size={12} color={getColor('textTertiary')} />
+                  <Text style={[styles.statText, { color: getColor('textTertiary') }]}> 
                     {activeNeighbors} active
                   </Text>
                 </View>
                 
                 <View style={styles.statItem}>
-                  <TrendingUp size={12} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.statText, { color: theme.colors.text.tertiary }]}>
+                  <Ionicons name="people" size={12} color={getColor('textTertiary')} />
+                  <Text style={[styles.statText, { color: getColor('textTertiary') }]}> 
                     {communityHealth}% health
                   </Text>
                 </View>
                 
                 <View style={styles.statItem}>
-                  <Zap size={12} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.statText, { color: theme.colors.text.tertiary }]}>
+                  <Ionicons name="notifications" size={12} color={getColor('textTertiary')} />
+                  <Text style={[styles.statText, { color: getColor('textTertiary') }]}> 
                     {socialScore} score
                   </Text>
                 </View>
@@ -117,7 +183,7 @@ export const HoodlyLayout: React.FC<HoodlyLayoutProps> = ({
             <View style={styles.actionButtons}>
               {onAIPress && (
                 <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: theme.colors.glass.primary }]}
+                  style={[styles.actionButton, { backgroundColor: getColor('surface') }]}
                   onPress={onAIPress}
                   activeOpacity={0.7}
                 >
@@ -126,11 +192,11 @@ export const HoodlyLayout: React.FC<HoodlyLayoutProps> = ({
               )}
               
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.colors.glass.primary }]}
+                style={[styles.actionButton, { backgroundColor: getColor('surface') }]}
                 onPress={onNotificationPress}
                 activeOpacity={0.7}
               >
-                <Bell size={20} color={theme.colors.text.primary} />
+                <Ionicons name="notifications" size={20} color={getColor('textPrimary')} />
               </TouchableOpacity>
             </View>
           </View>
@@ -142,10 +208,8 @@ export const HoodlyLayout: React.FC<HoodlyLayoutProps> = ({
                 placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChangeText={handleSearch}
-                onSearch={() => onSearch?.(searchQuery)}
-                onFilter={handleFilter}
-                showFilter={true}
-                showVoice={true}
+                onSubmit={() => onSearch?.(searchQuery)}
+                withMic={true}
               />
             </View>
           )}

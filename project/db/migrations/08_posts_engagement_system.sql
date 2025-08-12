@@ -141,17 +141,18 @@ GRANT ALL ON post_likes TO authenticated;
 GRANT ALL ON post_comments TO authenticated;
 GRANT SELECT ON posts_with_engagement TO authenticated;
 
--- Insert sample data for testing (optional)
-INSERT INTO posts (user_id, content, proximity, tags) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Welcome to the neighborhood! 🏠', 'neighborhood', ARRAY['welcome', 'community']),
-  ('00000000-0000-0000-0000-000000000002', 'Great weather today! Perfect for a walk in the park.', 'neighborhood', ARRAY['weather', 'outdoors']),
-  ('00000000-0000-0000-0000-000000000003', 'Anyone up for a community meetup this weekend?', 'city', ARRAY['meetup', 'community', 'weekend']);
+-- TODO: Remove sample data - use real user-generated content instead
+-- INSERT INTO posts (user_id, content, proximity, tags) VALUES
+--   ('00000000-0000-0000-0000-000000000001', 'Welcome to the neighborhood! 🏠', 'neighborhood', ARRAY['welcome', 'community']),
+--   ('00000000-0000-0000-0000-000000000002', 'Great weather today! Perfect for a walk in the park.', 'neighborhood', ARRAY['weather', 'outdoors']),
+--   ('00000000-0000-0000-0000-000000000003', 'Anyone up for a community meetup this weekend?', 'city', ARRAY['meetup', 'community', 'weekend']);
 
--- Add some sample likes and comments
-INSERT INTO post_likes (post_id, user_id) VALUES
-  ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000002'),
-  ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000003');
+-- TODO: Remove sample data - use real user interactions instead
+-- INSERT INTO post_likes (post_id, user_id) VALUES
+--   ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000002'),
+--   ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000003');
 
-INSERT INTO post_comments (post_id, user_id, text) VALUES
-  ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000002', 'Welcome! Looking forward to meeting everyone!'),
-  ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000003', 'Thanks for the warm welcome! 🎉'); 
+-- TODO: Remove sample data - use real user comments instead
+-- INSERT INTO post_comments (post_id, user_id, text) VALUES
+--   ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000002', 'Welcome! Looking forward to meeting everyone!'),
+--   ((SELECT id FROM posts LIMIT 1), '00000000-0000-0000-0000-000000000003', 'Thanks for the warm welcome! 🎉'); 

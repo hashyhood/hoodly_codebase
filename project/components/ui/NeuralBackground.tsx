@@ -1,77 +1,98 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
-import { theme } from '../../lib/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
-interface NeuralNode {
-  id: number;
-  scale: Animated.Value;
-  opacity: Animated.Value;
+interface NeuralBackgroundProps {
+  children?: React.ReactNode;
+  nodeCount?: number;
+  intensity?: number;
 }
 
-export const NeuralBackground: React.FC = () => {
-  const nodes = useRef<NeuralNode[]>([]);
+export const NeuralBackground: React.FC<NeuralBackgroundProps> = ({
+  children,
+  nodeCount = 50,
+  intensity = 1,
+}) => {
+  const { colors } = useTheme();
+  const nodes = useRef<Animated.ValueXY[]>([]);
 
   useEffect(() => {
-    // Create neural nodes with simplified animations
-    for (let i = 0; i < 15; i++) {
-      const node: NeuralNode = {
-        id: i,
-        scale: new Animated.Value(1),
-        opacity: new Animated.Value(0.7),
-      };
-      nodes.current.push(node);
+    // Initialize nodes
+    nodes.current = Array.from({ length: nodeCount }, () => new Animated.ValueXY());
 
-      // Animate node pulse (only using native driver compatible properties)
-      Animated.loop(
+    // Set initial positions
+    nodes.current.forEach((node) => {
+      node.setValue({
+        x: Math.random() * width,
+        y: Math.random() * height,
+      });
+    });
+
+    // Start animations
+    const animations = nodes.current.map((node) => {
+      const randomX = Math.random() * width;
+      const randomY = Math.random() * height;
+      const duration = 5000 + Math.random() * 5000;
+
+      return Animated.loop(
         Animated.sequence([
           Animated.parallel([
-            Animated.timing(node.scale, {
-              toValue: 1.5,
-              duration: 1500,
-              useNativeDriver: true,
+            Animated.timing(node.x, {
+              toValue: randomX,
+              duration,
+              useNativeDriver: false,
             }),
-            Animated.timing(node.opacity, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
+            Animated.timing(node.y, {
+              toValue: randomY,
+              duration,
+              useNativeDriver: false,
             }),
           ]),
           Animated.parallel([
-            Animated.timing(node.scale, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
+            Animated.timing(node.x, {
+              toValue: Math.random() * width,
+              duration,
+              useNativeDriver: false,
             }),
-            Animated.timing(node.opacity, {
-              toValue: 0.7,
-              duration: 1500,
-              useNativeDriver: true,
+            Animated.timing(node.y, {
+              toValue: Math.random() * height,
+              duration,
+              useNativeDriver: false,
             }),
           ]),
         ])
-      ).start();
-    }
-  }, []);
+      );
+    });
+
+    // Start all animations
+    animations.forEach((animation) => animation.start());
+
+    return () => {
+      nodes.current.forEach(node => {
+        node.x.stopAnimation();
+        node.y.stopAnimation();
+      });
+    };
+  }, [nodeCount, intensity]);
 
   return (
     <View style={styles.container}>
-      {/* Neural Nodes */}
       {nodes.current.map((node, index) => (
         <Animated.View
-          key={`node-${node.id}`}
+          key={index}
           style={[
             styles.node,
             {
-              left: Math.random() * width,
-              top: Math.random() * height,
-              transform: [{ scale: node.scale }],
-              opacity: node.opacity,
+              left: node.x,
+              top: node.y,
+              backgroundColor: colors.neural.primary,
             },
           ]}
         />
       ))}
+      {children}
     </View>
   );
 };
@@ -90,6 +111,5 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: theme.colors.neural.primary,
   },
 }); 

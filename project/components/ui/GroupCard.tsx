@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Lock, MessageCircle, Calendar } from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, theme } from '../../lib/theme';
 
 interface Group {
   id: string;
@@ -38,8 +38,6 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onLeave,
   onUserPress,
 }) => {
-  const { theme } = useTheme();
-
   const getCategoryEmoji = (category: string) => {
     const emojiMap: Record<string, string> = {
       general: '🏠',
@@ -77,8 +75,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   return (
     <TouchableOpacity 
       style={[styles.container, { 
-        backgroundColor: theme.colors.glass.primary,
-        borderColor: theme.colors.glass.border,
+        backgroundColor: getColor('surface'),
+        borderColor: getColor('divider'),
       }]}
       onPress={() => onPress?.(group.id)}
     >
@@ -88,7 +86,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           <Image source={{ uri: group.coverImage }} style={styles.groupImage} />
         ) : (
           <LinearGradient
-            colors={theme.colors.gradients.neural as [string, string]}
+            colors={theme.gradients.primary}
             style={styles.placeholderImage}
           >
             <Text style={styles.placeholderEmoji}>{getCategoryEmoji(group.category)}</Text>
@@ -103,15 +101,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {/* Privacy Badge */}
         <View style={[styles.privacyBadge, { 
           backgroundColor: group.isPrivate 
-            ? theme.colors.status.warning 
-            : theme.colors.status.success 
+            ? getColor('warning') 
+            : getColor('success') 
         }]}>
           {group.isPrivate ? (
-            <Lock size={12} color={theme.colors.text.inverse} />
+            <Ionicons name="lock-closed" size={12} color={getColor('textPrimary')} />
           ) : (
-            <Users size={12} color={theme.colors.text.inverse} />
+            <Ionicons name="people" size={12} color={getColor('textPrimary')} />
           )}
-          <Text style={[styles.privacyText, { color: theme.colors.text.inverse }]}>
+          <Text style={[styles.privacyText, { color: getColor('textPrimary') }]}> 
             {group.isPrivate ? 'Private' : 'Public'}
           </Text>
         </View>
@@ -119,9 +117,9 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {/* Creator Badge */}
         {group.isCreator && (
           <View style={[styles.creatorBadge, { 
-            backgroundColor: theme.colors.neural.primary 
-          }]}>
-            <Text style={[styles.creatorText, { color: theme.colors.text.inverse }]}>
+            backgroundColor: getColor('success') 
+          }]}> 
+            <Text style={[styles.creatorText, { color: getColor('textPrimary') }]}> 
               Creator
             </Text>
           </View>
@@ -129,10 +127,10 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         
         {/* Member Count */}
         <View style={[styles.memberCount, { 
-          backgroundColor: theme.colors.glass.overlay 
-        }]}>
-          <Users size={14} color={theme.colors.text.primary} />
-          <Text style={[styles.memberCountText, { color: theme.colors.text.primary }]}>
+          backgroundColor: getColor('surface') 
+        }]}> 
+          <Ionicons name="people" size={14} color={getColor('textPrimary')} />
+          <Text style={[styles.memberCountText, { color: getColor('textPrimary') }]}> 
             {formatMemberCount(group.memberCount)}
           </Text>
         </View>
@@ -141,19 +139,19 @@ export const GroupCard: React.FC<GroupCardProps> = ({
       {/* Group Content */}
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.name, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.name, { color: getColor('textPrimary') }]}> 
             {group.name}
           </Text>
           <View style={[styles.categoryBadge, { 
-            backgroundColor: theme.colors.glass.secondary 
-          }]}>
-            <Text style={[styles.categoryText, { color: theme.colors.text.secondary }]}>
+            backgroundColor: getColor('surface') 
+          }]}> 
+            <Text style={[styles.categoryText, { color: getColor('textSecondary') }]}> 
               {getCategoryEmoji(group.category)} {group.category}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.description, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.description, { color: getColor('textSecondary') }]}> 
           {group.description}
         </Text>
 
@@ -162,15 +160,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           <View style={styles.tagsContainer}>
             {group.tags.slice(0, 3).map((tag, index) => (
               <View key={index} style={[styles.tag, { 
-                backgroundColor: theme.colors.glass.secondary 
-              }]}>
-                <Text style={[styles.tagText, { color: theme.colors.text.secondary }]}>
+                backgroundColor: getColor('surface') 
+              }]}> 
+                <Text style={[styles.tagText, { color: getColor('textSecondary') }]}> 
                   #{tag}
                 </Text>
               </View>
             ))}
             {group.tags.length > 3 && (
-              <Text style={[styles.moreTags, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.moreTags, { color: getColor('textTertiary') }]}> 
                 +{group.tags.length - 3} more
               </Text>
             )}
@@ -180,10 +178,10 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {/* Rules Preview */}
         {group.rules.length > 0 && (
           <View style={styles.rulesPreview}>
-            <Text style={[styles.rulesTitle, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.rulesTitle, { color: getColor('textTertiary') }]}> 
               Rules: {group.rules.length}
             </Text>
-            <Text style={[styles.rulesText, { color: theme.colors.text.tertiary }]}>
+            <Text style={[styles.rulesText, { color: getColor('textTertiary') }]}> 
               {group.rules[0]}
             </Text>
           </View>
@@ -191,14 +189,14 @@ export const GroupCard: React.FC<GroupCardProps> = ({
       </View>
 
       {/* Action Buttons */}
-      <View style={[styles.actions, { borderTopColor: theme.colors.glass.border }]}>
+      <View style={[styles.actions, { borderTopColor: getColor('divider') }]}>
         <View style={styles.actionInfo}>
-          <Text style={[styles.createdTime, { color: theme.colors.text.tertiary }]}>
+          <Text style={[styles.createdTime, { color: getColor('textTertiary') }]}> 
             {formatTime(group.createdAt)}
           </Text>
           <Text style={[styles.proximityBadge, { 
-            backgroundColor: theme.colors.glass.secondary,
-            color: theme.colors.text.secondary 
+            backgroundColor: getColor('surface'),
+            color: getColor('textSecondary') 
           }]}>
             {group.proximity}
           </Text>
@@ -208,15 +206,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           <TouchableOpacity 
             style={[styles.joinButton, { 
               backgroundColor: group.isMember 
-                ? theme.colors.status.error 
-                : theme.colors.neural.primary 
+                ? getColor('error') 
+                : getColor('success') 
             }]}
             onPress={() => group.isMember 
               ? onLeave?.(group.id) 
               : onJoin?.(group.id)
             }
           >
-            <Text style={[styles.joinButtonText, { color: theme.colors.text.inverse }]}>
+            <Text style={[styles.joinButtonText, { color: getColor('textPrimary') }]}> 
               {group.isMember ? 'Leave' : 'Join'}
             </Text>
           </TouchableOpacity>

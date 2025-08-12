@@ -15,9 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, User, Mail, MapPin, Hash, Camera, Lock } from 'lucide-react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { CONFIG } from '../lib/config';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,7 +30,6 @@ const INTERESTS = [
 ];
 
 export default function RegisterScreen() {
-  const { theme } = useTheme();
   const { signUp } = useAuth();
   const [formData, setFormData] = useState({
     personalName: '',
@@ -75,6 +75,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (formData.password.length < CONFIG.USERS.MIN_PASSWORD_LENGTH) {
+      Alert.alert('Password Too Short', `Password must be at least ${CONFIG.USERS.MIN_PASSWORD_LENGTH} characters long.`);
+      return;
+    }
+
     if (formData.interests.length === 0) {
       Alert.alert('Select Interests', 'Please select at least one interest.');
       return;
@@ -106,7 +111,7 @@ export default function RegisterScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => router.replace('/login'),
+  onPress: () => router.replace('/auth'),
               },
             ]
           );
@@ -115,7 +120,8 @@ export default function RegisterScreen() {
           console.log('Registration successful:', data.user.email);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Registration error:', error);
       Alert.alert('Connection Error', 'Please check your connection and try again.');
     } finally {
       setIsLoading(false);
@@ -123,20 +129,20 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <LinearGradient
-        colors={theme.colors.gradients.neural as [string, string]}
+        colors={theme.gradients.primary}
         style={styles.backgroundGradient}
         pointerEvents="none"
       />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <ArrowLeft color={theme.colors.text.primary} size={24} />
+        <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+            <Ionicons name="arrow-back" size={24} color={getColor('textPrimary')} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Create Account</Text>
+          <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>Create Account</Text>
           <View style={styles.headerSpacer} />
         </BlurView>
 
@@ -147,14 +153,14 @@ export default function RegisterScreen() {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Avatar Selection */}
             <View style={styles.avatarSection}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Choose Your Avatar</Text>
+              <Text style={[styles.sectionTitle, { color: getColor('textPrimary') }]}>Choose Your Avatar</Text>
               <View style={styles.avatarGrid}>
                 {avatars.map((avatar, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
                       styles.avatarOption,
-                      selectedAvatar === index && { borderColor: theme.colors.neural.primary, borderWidth: 3 }
+                       selectedAvatar === index && { borderColor: getColor('success'), borderWidth: 3 }
                     ]}
                     onPress={() => setSelectedAvatar(index)}
                   >
@@ -166,25 +172,25 @@ export default function RegisterScreen() {
 
             {/* Personal Information */}
             <View style={styles.formSection}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Personal Information</Text>
+              <Text style={[styles.sectionTitle, { color: getColor('textPrimary') }]}>Personal Information</Text>
               
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <User color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+                <Ionicons name="person" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Full Name"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.personalName}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, personalName: text }))}
                 />
               </View>
 
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <Mail color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+                <Ionicons name="mail" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Email Address"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.email}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
                   keyboardType="email-address"
@@ -192,12 +198,12 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <Lock color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+                <Ionicons name="lock-closed" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Password"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.password}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
                   secureTextEntry={true}
@@ -206,20 +212,20 @@ export default function RegisterScreen() {
               </View>
 
               {generatedUsername && (
-                <View style={[styles.usernamePreview, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}>
-                  <Hash color={theme.colors.text.secondary} size={16} />
-                  <Text style={[styles.usernameText, { color: theme.colors.text.primary }]}>
+                <View style={[styles.usernamePreview, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+                  <Ionicons name="at" size={16} color={getColor('textSecondary')} />
+                  <Text style={[styles.usernameText, { color: getColor('textPrimary') }]}>
                     Your username: @{generatedUsername}
                   </Text>
                 </View>
               )}
 
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <MapPin color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}>
+                <Ionicons name="location" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Location (optional)"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.location}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
                 />
@@ -227,12 +233,12 @@ export default function RegisterScreen() {
 
               <TextInput
                 style={[styles.bioInput, { 
-                  backgroundColor: theme.colors.glass.primary, 
-                  borderColor: theme.colors.glass.border,
-                  color: theme.colors.text.primary 
+                  backgroundColor: getColor('surface'), 
+                  borderColor: getColor('divider'),
+                  color: getColor('textPrimary') 
                 }]}
                 placeholder="Tell us about yourself (optional)"
-                placeholderTextColor={theme.colors.text.tertiary}
+                placeholderTextColor={getColor('textTertiary')}
                 value={formData.bio}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, bio: text }))}
                 multiline
@@ -243,10 +249,10 @@ export default function RegisterScreen() {
 
             {/* Interests Selection */}
             <View style={styles.interestsSection}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.sectionTitle, { color: getColor('textPrimary') }]}>
                 Select Your Interests ({formData.interests.length}/5)
               </Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.sectionSubtitle, { color: getColor('textSecondary') }]}>
                 Choose up to 5 interests to help us personalize your experience
               </Text>
               
@@ -257,16 +263,16 @@ export default function RegisterScreen() {
                     style={[
                       styles.interestChip,
                       formData.interests.includes(interest)
-                        ? { backgroundColor: theme.colors.neural.primary }
-                        : { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }
+                        ? { backgroundColor: getColor('success') }
+                        : { backgroundColor: getColor('surface'), borderColor: getColor('divider') }
                     ]}
                     onPress={() => toggleInterest(interest)}
                   >
                     <Text style={[
                       styles.interestText,
-                      formData.interests.includes(interest)
-                        ? { color: theme.colors.text.inverse }
-                        : { color: theme.colors.text.primary }
+                        formData.interests.includes(interest)
+                          ? { color: getColor('textPrimary') }
+                          : { color: getColor('textPrimary') }
                     ]}>
                       {interest}
                     </Text>
@@ -277,7 +283,7 @@ export default function RegisterScreen() {
           </ScrollView>
 
           {/* Register Button */}
-          <BlurView intensity={30} style={[styles.bottomBar, { borderTopColor: theme.colors.glass.border }]}>
+          <BlurView intensity={30} style={[styles.bottomBar, { borderTopColor: getColor('divider') }]}>
             <TouchableOpacity
               style={[
                 styles.registerButton,
@@ -287,10 +293,10 @@ export default function RegisterScreen() {
               disabled={isLoading}
             >
               <LinearGradient
-                colors={theme.colors.gradients.neural as [string, string]}
+                colors={theme.gradients.primary as [string, string]}
                 style={styles.registerGradient}
               >
-                <Text style={[styles.registerText, { color: theme.colors.text.inverse }]}>
+                <Text style={[styles.registerText, { color: getColor('textPrimary') }]}>
                   {isLoading ? 'Creating Account...' : 'Create Account'}
                 </Text>
               </LinearGradient>

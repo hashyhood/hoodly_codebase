@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -22,7 +22,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, resetPassword } = useAuth();
 
   const handleAuth = async () => {
     if (!email || !password || (isSignUp && !fullName)) {
@@ -33,11 +33,13 @@ export default function AuthScreen() {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        await signUp(email, password, fullName);
-        Alert.alert('Success', 'Account created! Please check your email to verify your account.');
+        const { error } = await signUp(email, password, { full_name: fullName });
+        if (error) throw new Error(error.message || 'Sign up failed');
+        Alert.alert('Success', 'Account created! Please verify your email.');
       } else {
-        await signIn(email, password);
-        router.replace('/(tabs)');
+        const { error } = await signIn(email, password);
+        if (error) throw new Error(error.message || 'Sign in failed');
+        // Navigation handled by AuthWrapper upon isAuthenticated
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Authentication failed');
@@ -128,7 +130,21 @@ export default function AuthScreen() {
             </TouchableOpacity>
 
             {!isSignUp && (
-              <TouchableOpacity style={styles.forgotPassword}>
+              <TouchableOpacity
+                style={styles.forgotPassword}
+                onPress={async () => {
+                  if (!email) {
+                    Alert.alert('Reset Password', 'Enter your account email above first.');
+                    return;
+                  }
+                  const { error } = await resetPassword(email);
+                  if (error) {
+                    Alert.alert('Reset Failed', error.message || 'Could not send reset email');
+                  } else {
+                    Alert.alert('Reset Email Sent', 'Check your inbox for reset instructions.');
+                  }
+                }}
+              >
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
             )}

@@ -2,7 +2,7 @@ const fetch = require('node-fetch');
 
 const API_BASE = 'http://192.168.18.232:5002/api';
 
-// Test data
+// TODO: Remove test data - use real user data from Supabase instead
 const testUsers = [
   {
     id: '00000000-0000-0000-0000-000000000001',

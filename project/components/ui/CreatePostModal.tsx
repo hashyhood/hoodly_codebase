@@ -1,391 +1,418 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { X, Image as ImageIcon, MapPin, Hash, Send } from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Image,
+  ScrollView,
+} from 'react-native';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CreatePostModalProps {
-  visible: boolean;
+  isVisible: boolean;
   onClose: () => void;
-  onSubmit: (post: { content: string; image?: string; proximity: string; tags: string[] }) => void;
-  currentProximity?: 'neighborhood' | 'city' | 'state';
+  onSave: (post: { content: string; images?: string[] }) => void;
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({
-  visible,
+  isVisible,
   onClose,
-  onSubmit,
-  currentProximity = 'neighborhood',
+  onSave,
 }) => {
-  const { theme } = useTheme();
+  const { user } = useAuth();
   const [content, setContent] = useState('');
-  const [image, setImage] = useState<string>('');
-  const [proximity, setProximity] = useState(currentProximity);
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
-  const proximityOptions = [
-            { value: 'neighborhood', label: 'Hood', emoji: '🏠' },
-    { value: 'city', label: 'City', emoji: '🏙️' },
-    { value: 'state', label: 'State', emoji: '🗺️' },
-  ];
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your photo library');
+        return;
+      }
 
-  const suggestedTags = [
-    'Local', 'Community', 'Events', 'Food', 'Music', 'Art', 'Sports', 'Business', 'Help', 'Recommendation'
-  ];
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
 
-  const handleSubmit = () => {
-    if (!content.trim()) {
-      Alert.alert('Error', 'Please enter some content for your post');
+      if (!result.canceled && result.assets) {
+        const newImages = result.assets.map(asset => asset.uri);
+        setImages(prev => [...prev, ...newImages].slice(0, 5)); // Max 5 images
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your camera');
+        return;
+      }
+
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets) {
+        const newImage = result.assets[0].uri;
+        setImages(prev => [...prev, newImage].slice(0, 5)); // Max 5 images
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (images.length === 0) return [];
+
+    setIsUploading(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const imageUri of images) {
+        const fileName = `posts/${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        
+        // Convert image to blob
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('post-images')
+          .upload(fileName, blob);
+
+        if (error) throw error;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('post-images')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(publicUrl);
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      Alert.alert('Error', 'Failed to upload images');
+    } finally {
+      setIsUploading(false);
+    }
+
+    return uploadedUrls;
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    if (!content.trim() && images.length === 0) {
+      Alert.alert('Error', 'Please add some content or images');
       return;
     }
 
-    onSubmit({
-      content: content.trim(),
-      image: image || undefined,
-      proximity,
-      tags,
-    });
+    try {
+      const uploadedUrls = await uploadImages();
+      
+      onSave({
+        content: content.trim(),
+        images: uploadedUrls,
+      });
 
-    // Reset form
-    setContent('');
-    setImage('');
-    setProximity(currentProximity);
-    setTags([]);
-    setTagInput('');
-    onClose();
-  };
-
-  const addTag = (tag: string) => {
-    const cleanTag = tag.trim().replace('#', '');
-    if (cleanTag && !tags.includes(cleanTag) && tags.length < 5) {
-      setTags([...tags, cleanTag]);
+      // Reset form
+      setContent('');
+      setImages([]);
+      onClose();
+    } catch (error) {
+      console.error('Error saving post:', error);
+      Alert.alert('Error', 'Failed to save post');
     }
   };
 
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+  const showImageOptions = () => {
+    setShowImagePicker(true);
   };
 
-  const handleTagInputSubmit = () => {
-    if (tagInput.trim()) {
-      addTag(tagInput);
-      setTagInput('');
-    }
-  };
-
-  if (!visible) return null;
+  if (!isVisible) return null;
 
   return (
-    <BlurView intensity={20} style={styles.overlay}>
-      <View style={[styles.modal, { 
-        backgroundColor: theme.colors.glass.primary,
-        borderColor: theme.colors.glass.border,
-      }]}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color={theme.colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
-            Create Post
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
+      <View style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+        <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+          <Text style={[styles.cancelText, { color: getColor('textTertiary') }]}>
+            Cancel
           </Text>
-          <TouchableOpacity 
-            style={[styles.submitButton, { 
-              backgroundColor: content.trim() ? theme.colors.neural.primary : theme.colors.interactive.disabled 
-            }]}
-            onPress={handleSubmit}
-            disabled={!content.trim()}
-          >
-            <Send size={20} color={theme.colors.text.inverse} />
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: getColor('textPrimary') }]}>
+          Create Post
+        </Text>
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={!content.trim() || isUploading}
+          style={[
+            styles.postButton,
+            {
+              backgroundColor: content.trim()
+                ? getColor('success')
+                : getColor('surface')
+            }
+          ]}
+        >
+          <Text style={[
+            styles.postButtonText,
+            { color: getColor('textPrimary') }
+          ]}>
+            {isUploading ? 'Posting...' : 'Post'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Proximity Selector */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary }]}>
-              Share with
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              color: getColor('textPrimary'),
+              borderColor: getColor('divider'),
+            }
+          ]}
+          placeholder="What's happening in your neighborhood?"
+          placeholderTextColor={getColor('textTertiary')}
+          value={content}
+          onChangeText={setContent}
+          multiline
+          maxLength={500}
+        />
+        <Text style={[styles.characterCount, { color: getColor('textTertiary') }]}>
+          {content.length}/500
+        </Text>
+
+        {/* Image Upload Section */}
+        {images.length < 5 && (
+          <TouchableOpacity
+            style={[
+              styles.imageUploadButton,
+              {
+                backgroundColor: getColor('surface'),
+                borderColor: getColor('divider'),
+              }
+            ]}
+            onPress={showImageOptions}
+          >
+            <View style={styles.imageUploadContent}>
+              <Text style={{ fontSize: 24, color: getColor('textTertiary') }}>📷</Text>
+              <Text style={[styles.imageUploadText, { color: getColor('textTertiary') }]}>
+                Add Photos ({images.length}/5)
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Selected Images */}
+        {images.length > 0 && (
+          <View style={styles.imagesSection}>
+            <Text style={[styles.sectionTitle, { color: getColor('textPrimary') }]}>
+              Selected Images
             </Text>
-            <View style={styles.proximityOptions}>
-              {proximityOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[styles.proximityOption, {
-                    backgroundColor: proximity === option.value 
-                      ? theme.colors.neural.primary 
-                      : theme.colors.glass.secondary,
-                    borderColor: theme.colors.glass.border,
-                  }]}
-                  onPress={() => setProximity(option.value as any)}
-                >
-                  <Text style={styles.proximityEmoji}>{option.emoji}</Text>
-                  <Text style={[styles.proximityLabel, { 
-                    color: proximity === option.value 
-                      ? theme.colors.text.inverse 
-                      : theme.colors.text.primary 
-                  }]}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.imagesGrid}>
+              {images.map((image, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri: image }} style={styles.image} />
+                  <TouchableOpacity
+                    style={[styles.tag, { backgroundColor: getColor('surface') }]}
+                    onPress={() => removeImage(index)}
+                  >
+                    <Text style={[styles.tagText, { color: getColor('textSecondary') }]}>
+                      Remove
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ))}
             </View>
           </View>
+        )}
+      </ScrollView>
 
-          {/* Content Input */}
-          <View style={styles.section}>
-            <TextInput
-              style={[styles.contentInput, { 
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.glass.border,
-              }]}
-              placeholder="What's happening in your hood?"
-              placeholderTextColor={theme.colors.text.tertiary}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-              maxLength={500}
-            />
-            <Text style={[styles.characterCount, { color: theme.colors.text.tertiary }]}>
-              {content.length}/500
-            </Text>
-          </View>
-
-          {/* Image Upload */}
-          <View style={styles.section}>
-            <TouchableOpacity 
-              style={[styles.imageUpload, { 
-                backgroundColor: theme.colors.glass.secondary,
-                borderColor: theme.colors.glass.border,
-              }]}
-              onPress={() => {
-                // TODO: Implement image picker
-                Alert.alert('Coming Soon', 'Image upload will be available soon!');
-              }}
-            >
-              <ImageIcon size={24} color={theme.colors.text.tertiary} />
-              <Text style={[styles.imageUploadText, { color: theme.colors.text.tertiary }]}>
-                Add Photo
+      {/* Image Options Modal */}
+      {showImagePicker && (
+        <View style={styles.imageOptionsModal}>
+          <View style={styles.imageOptionsContent}>
+            <TouchableOpacity style={styles.imageOption} onPress={takePhoto}>
+              <Ionicons name="camera" size={24} color={getColor('textPrimary')} />
+              <Text style={[styles.imageOptionText, { color: getColor('textPrimary') }]}>
+                Take Photo
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.imageOption} onPress={pickImage}>
+              <Ionicons name="images" size={24} color={getColor('textPrimary')} />
+              <Text style={[styles.imageOptionText, { color: getColor('textPrimary') }]}>
+                Choose from Library
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.imageOption} onPress={() => setShowImagePicker(false)}>
+              <Ionicons name="close" size={24} color={getColor('textPrimary')} />
+              <Text style={[styles.imageOptionText, { color: getColor('textPrimary') }]}>
+                Cancel
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Tags */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary }]}>
-              Tags
-            </Text>
-            
-            {/* Tag Input */}
-            <View style={styles.tagInputContainer}>
-              <Hash size={16} color={theme.colors.text.tertiary} />
-              <TextInput
-                style={[styles.tagInput, { color: theme.colors.text.primary }]}
-                placeholder="Add a tag..."
-                placeholderTextColor={theme.colors.text.tertiary}
-                value={tagInput}
-                onChangeText={setTagInput}
-                onSubmitEditing={handleTagInputSubmit}
-                returnKeyType="done"
-              />
-            </View>
-
-            {/* Selected Tags */}
-            {tags.length > 0 && (
-              <View style={styles.selectedTags}>
-                {tags.map((tag, index) => (
-                  <View key={index} style={[styles.tag, { 
-                    backgroundColor: theme.colors.neural.primary + '20',
-                    borderColor: theme.colors.neural.primary,
-                  }]}>
-                    <Text style={[styles.tagText, { color: theme.colors.neural.primary }]}>
-                      #{tag}
-                    </Text>
-                    <TouchableOpacity onPress={() => removeTag(tag)}>
-                      <X size={12} color={theme.colors.neural.primary} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Suggested Tags */}
-            <Text style={[styles.suggestedTitle, { color: theme.colors.text.tertiary }]}>
-              Suggested:
-            </Text>
-            <View style={styles.suggestedTags}>
-              {suggestedTags.map((tag) => (
-                <TouchableOpacity
-                  key={tag}
-                  style={[styles.suggestedTag, { 
-                    backgroundColor: theme.colors.glass.secondary 
-                  }]}
-                  onPress={() => addTag(tag)}
-                >
-                  <Text style={[styles.suggestedTagText, { color: theme.colors.text.secondary }]}>
-                    #{tag}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    </BlurView>
+        </View>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
+  container: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  closeButton: {
-    padding: 4,
+  cancelButton: {
+    padding: 8,
   },
-  headerTitle: {
+  cancelText: {
+    fontSize: 16,
+  },
+  title: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  submitButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+  postButton: {
+    paddingHorizontal: getSpacing('xl'),
+    paddingVertical: getSpacing('xs'),
+    borderRadius: getRadius('xl'),
+  },
+  postButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   content: {
-    padding: 16,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  proximityOptions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  proximityOption: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    padding: getSpacing('xl'),
   },
-  proximityEmoji: {
-    fontSize: 16,
-  },
-  proximityLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  contentInput: {
+  textInput: {
     minHeight: 120,
-    padding: 12,
-    borderRadius: 12,
     borderWidth: 1,
+    borderRadius: getRadius('sm'),
+    padding: getSpacing('lg'),
     fontSize: 16,
-    lineHeight: 22,
+    textAlignVertical: 'top',
   },
   characterCount: {
     fontSize: 12,
     textAlign: 'right',
-    marginTop: 4,
+    marginTop: getSpacing('xs'),
   },
-  imageUpload: {
+  imageUploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
+    padding: getSpacing('xl'),
+    borderRadius: getRadius('sm'),
     borderWidth: 1,
     borderStyle: 'dashed',
   },
-  imageUploadText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
+  imageUploadContent: {
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: 12,
   },
-  tagInput: {
-    flex: 1,
-    fontSize: 14,
+  imageUploadText: {
+    marginTop: getSpacing('xs'),
+    fontSize: 16,
   },
-  selectedTags: {
+  imagesSection: {
+    marginTop: getSpacing('xl'),
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: getSpacing('sm'),
+  },
+  imagesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    gap: getSpacing('xs'),
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: getRadius('xs'),
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
+    position: 'absolute',
+    bottom: getSpacing('xs'),
+    left: getSpacing('xs'),
+    paddingHorizontal: getSpacing('sm'),
+    paddingVertical: getSpacing('xs'),
+    borderRadius: getRadius('lg'),
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
   },
-  suggestedTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
+  imageOptionsModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  suggestedTags: {
+  imageOptionsContent: {
+    backgroundColor: getColor('bg'),
+    borderRadius: getRadius('lg'),
+    padding: getSpacing('xl'),
+    width: '80%',
+    alignItems: 'center',
+  },
+  imageOption: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+    alignItems: 'center',
+    marginBottom: getSpacing('lg'),
+    paddingVertical: getSpacing('sm'),
+    paddingHorizontal: getSpacing('xl'),
+    borderRadius: getRadius('sm'),
+    borderWidth: 1,
+    borderColor: getColor('divider'),
   },
-  suggestedTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  suggestedTagText: {
-    fontSize: 12,
-    fontWeight: '500',
+  imageOptionText: {
+    marginLeft: getSpacing('sm'),
+    fontSize: 18,
+    fontWeight: '600',
   },
 }); 

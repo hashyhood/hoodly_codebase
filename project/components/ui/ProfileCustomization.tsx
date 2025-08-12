@@ -59,7 +59,7 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
   onSave,
   initialData,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [profile, setProfile] = useState<ProfileData>(initialData || {
     personalName: '',
     username: '',
@@ -126,69 +126,69 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
   const renderBasicInfo = () => (
     <View style={styles.tabContent}>
       {/* Avatar Selection */}
-      <TouchableOpacity
-        style={[styles.avatarSection, { backgroundColor: theme.colors.glass.primary }]}
+          <TouchableOpacity
+            style={[styles.avatarSection, { backgroundColor: colors.glass.primary }]}
         onPress={() => setShowAvatarPicker(true)}
         activeOpacity={0.8}
       >
         <Text style={styles.currentAvatar}>{profile.avatar}</Text>
         <View style={styles.avatarInfo}>
-          <Text style={[styles.avatarTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.avatarTitle, { color: colors.text.primary }]}>
             Profile Avatar
           </Text>
-          <Text style={[styles.avatarSubtitle, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.avatarSubtitle, { color: colors.text.secondary }]}>
             Tap to change
           </Text>
         </View>
       </TouchableOpacity>
 
       {/* Name Input */}
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Name</Text>
+          <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Name</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+              style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.personalName}
           onChangeText={(text) => setProfile(prev => ({ ...prev, personalName: text }))}
           placeholder="Your name"
-          placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
       {/* Username Input */}
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Username</Text>
+          <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Username</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+              style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.username}
           onChangeText={(text) => setProfile(prev => ({ ...prev, username: text }))}
           placeholder="@username"
-          placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
       {/* Bio Input */}
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Bio</Text>
+          <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Bio</Text>
         <TextInput
-          style={[styles.textArea, { color: theme.colors.text.primary }]}
+              style={[styles.textArea, { color: colors.text.primary }]}
           value={profile.bio}
           onChangeText={(text) => setProfile(prev => ({ ...prev, bio: text }))}
           placeholder="Tell us about yourself..."
-          placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
           multiline
           numberOfLines={4}
         />
       </View>
 
       {/* Location Input */}
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Location</Text>
+          <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Location</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+              style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.location}
           onChangeText={(text) => setProfile(prev => ({ ...prev, location: text }))}
           placeholder="Your city"
-          placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
         />
       </View>
     </View>
@@ -196,13 +196,13 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
 
   const renderInterests = () => (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
         Select your interests (max 5)
       </Text>
       
       {Object.entries(INTEREST_CATEGORIES).map(([category, interests]) => (
         <View key={category} style={styles.interestCategory}>
-          <Text style={[styles.categoryTitle, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.categoryTitle, { color: colors.text.secondary }]}>
             {category}
           </Text>
           <View style={styles.interestsGrid}>
@@ -211,9 +211,9 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                 key={interest}
                 style={[
                   styles.interestChip,
-                  { backgroundColor: theme.colors.glass.primary },
+                  { backgroundColor: colors.glass.primary },
                   profile.interests.includes(interest) && {
-                    backgroundColor: theme.colors.gradients.neural[0],
+                    backgroundColor: colors.neural.primary,
                   },
                 ]}
                 onPress={() => toggleInterest(interest)}
@@ -222,9 +222,9 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                 <Text
                   style={[
                     styles.interestText,
-                    { color: theme.colors.text.primary },
+                    { color: colors.text.primary },
                     profile.interests.includes(interest) && {
-                      color: theme.colors.text.inverse,
+                      color: colors.text.inverse,
                     },
                   ]}
                 >
@@ -240,46 +240,46 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
 
   const renderSocial = () => (
     <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
         Social Links
       </Text>
       
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Website</Text>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Website</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.website}
           onChangeText={(text) => setProfile(prev => ({ ...prev, website: text }))}
           placeholder="https://yourwebsite.com"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Instagram</Text>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Instagram</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.socialLinks.instagram || ''}
           onChangeText={(text) => setProfile(prev => ({
             ...prev,
             socialLinks: { ...prev.socialLinks, instagram: text }
           }))}
           placeholder="@username"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>Twitter</Text>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Twitter</Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={profile.socialLinks.twitter || ''}
           onChangeText={(text) => setProfile(prev => ({
             ...prev,
             socialLinks: { ...prev.socialLinks, twitter: text }
           }))}
           placeholder="@username"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
         />
       </View>
     </View>
@@ -299,20 +299,20 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
               styles.modalContainer,
               {
                 transform: [{ translateY: slideAnimation }],
-                backgroundColor: theme.colors.neural.background,
+                backgroundColor: colors.neural.background,
               },
             ]}
           >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+                <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
                 Edit Profile
               </Text>
               <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                <Text style={[styles.saveText, { color: theme.colors.neural.primary }]}>Save</Text>
+                <Text style={[styles.saveText, { color: colors.neural.primary }]}>Save</Text>
               </TouchableOpacity>
             </View>
 
@@ -328,7 +328,7 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                   style={[
                     styles.tabButton,
                     activeTab === tab.id && {
-                      backgroundColor: theme.colors.gradients.neural[0],
+                      backgroundColor: colors.neural.primary,
                     },
                   ]}
                   onPress={() => setActiveTab(tab.id as any)}
@@ -338,8 +338,8 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                   <Text
                     style={[
                       styles.tabLabel,
-                      { color: theme.colors.text.primary },
-                      activeTab === tab.id && { color: theme.colors.text.inverse },
+                      { color: colors.text.primary },
+                      activeTab === tab.id && { color: colors.text.inverse },
                     ]}
                   >
                     {tab.label}
@@ -362,8 +362,8 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
             >
               <View style={styles.avatarPickerOverlay}>
                 <BlurView intensity={30} style={styles.avatarPickerBlur}>
-                  <View style={[styles.avatarPickerContainer, { backgroundColor: theme.colors.glass.primary }]}>
-                    <Text style={[styles.avatarPickerTitle, { color: theme.colors.text.primary }]}>
+                  <View style={[styles.avatarPickerContainer, { backgroundColor: colors.glass.primary }]}>
+                    <Text style={[styles.avatarPickerTitle, { color: colors.text.primary }]}>
                       Choose Avatar
                     </Text>
                     <View style={styles.avatarGrid}>
@@ -373,7 +373,7 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                           style={[
                             styles.avatarOption,
                             profile.avatar === avatar && {
-                              backgroundColor: theme.colors.gradients.neural[0],
+                              backgroundColor: colors.neural.primary,
                             },
                           ]}
                           onPress={() => {
@@ -390,7 +390,7 @@ export const ProfileCustomization: React.FC<ProfileCustomizationProps> = ({
                       style={styles.cancelButton}
                       onPress={() => setShowAvatarPicker(false)}
                     >
-                      <Text style={[styles.cancelText, { color: theme.colors.text.secondary }]}>
+                      <Text style={[styles.cancelText, { color: colors.text.secondary }]}>
                         Cancel
                       </Text>
                     </TouchableOpacity>

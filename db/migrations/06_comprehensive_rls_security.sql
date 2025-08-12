@@ -706,7 +706,7 @@ BEGIN
     LIMIT 1;
     
     IF other_user_id IS NULL THEN
-        -- If no other user exists, create a dummy test
+        -- TODO: Remove dummy test - handle case where no other users exist
         RETURN QUERY SELECT 'no_other_users'::TEXT, TRUE, TRUE, TRUE;
         RETURN;
     END IF;

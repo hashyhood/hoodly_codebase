@@ -1,830 +1,1197 @@
-// Database Types for Hoodly App
+// Database Types for Hoodly App - Updated to match existing database structure
 
 export interface Database {
   public: {
     Tables: {
       profiles: {
         Row: {
-          id: string
-          email: string | null
-          full_name: string | null
-          avatar_url: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
+          id: string;
+          email: string | null;
+          full_name: string | null;
+          username: string | null;
+          avatar_url: string | null;
+          bio: string | null;
+          phone_number: string | null;
+          date_of_birth: string | null;
+          gender: string | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_name: string | null;
+          neighborhood: string | null;
+          interests: string[] | null;
+          is_private: boolean | null;
+          is_verified: boolean | null;
+          profile_visibility: string | null;
+          followers_count: number | null;
+          following_count: number | null;
+          posts_count: number | null;
+          last_active: string | null;
+          notification_preferences: any | null;
+          created_at: string | null;
+          updated_at: string | null;
+          location: string | null;
+          website: string | null;
+          phone: string | null;
+          last_seen: string | null;
+          status: string | null;
+          cover_image_url: string | null;
+          role: string | null;
+        };
         Insert: {
-          id: string
-          email?: string | null
-          full_name?: string | null
-          avatar_url?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
+          id: string;
+          email?: string | null;
+          full_name?: string | null;
+          username?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
+          phone_number?: string | null;
+          date_of_birth?: string | null;
+          gender?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          neighborhood?: string | null;
+          interests?: string[] | null;
+          is_private?: boolean | null;
+          is_verified?: boolean | null;
+          profile_visibility?: string | null;
+          followers_count?: number | null;
+          following_count?: number | null;
+          posts_count?: number | null;
+          last_active?: string | null;
+          notification_preferences?: any | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location?: string | null;
+          website?: string | null;
+          phone?: string | null;
+          last_seen?: string | null;
+          status?: string | null;
+          cover_image_url?: string | null;
+          role?: string | null;
+        };
         Update: {
-          id?: string
-          email?: string | null
-          full_name?: string | null
-          avatar_url?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-      }
+          id?: string;
+          email?: string | null;
+          full_name?: string | null;
+          username?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
+          phone_number?: string | null;
+          date_of_birth?: string | null;
+          gender?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          neighborhood?: string | null;
+          interests?: string[] | null;
+          is_private?: boolean | null;
+          is_verified?: boolean | null;
+          profile_visibility?: string | null;
+          followers_count?: number | null;
+          following_count?: number | null;
+          posts_count?: number | null;
+          last_active?: string | null;
+          notification_preferences?: any | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location?: string | null;
+          website?: string | null;
+          phone?: string | null;
+          last_seen?: string | null;
+          status?: string | null;
+          cover_image_url?: string | null;
+          role?: string | null;
+        };
+      };
       posts: {
         Row: {
-          id: string
-          user_id: string
-          content: string
-          image_url: string | null
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          user_id: string;
+          content: string;
+          image_url: string | null;
+          media_urls: string[] | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_name: string | null;
+          proximity: string | null;
+          tags: string[] | null;
+          likes_count: number | null;
+          comments_count: number | null;
+          shares_count: number | null;
+          visibility: string | null;
+          post_type: string | null;
+          is_anonymous: boolean | null;
+          is_ai_bot: boolean | null;
+          group_id: string | null;
+          event_id: string | null;
+          marketplace_id: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          location: string | null;
+          media_type: string | null;
+          is_active: boolean | null;
+          images: string[] | null;
+          views_count: number | null;
+          reach_count: number | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          content: string
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
+          id?: string;
+          user_id: string;
+          content: string;
+          image_url?: string | null;
+          media_urls?: string[] | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          proximity?: string | null;
+          tags?: string[] | null;
+          likes_count?: number | null;
+          comments_count?: number | null;
+          shares_count?: number | null;
+          visibility?: string | null;
+          post_type?: string | null;
+          is_anonymous?: boolean | null;
+          is_ai_bot?: boolean | null;
+          group_id?: string | null;
+          event_id?: string | null;
+          marketplace_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location?: string | null;
+          media_type?: string | null;
+          is_active?: boolean | null;
+          images?: string[] | null;
+          views_count?: number | null;
+          reach_count?: number | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          content?: string
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
+          id?: string;
+          user_id?: string;
+          content?: string;
+          image_url?: string | null;
+          media_urls?: string[] | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          proximity?: string | null;
+          tags?: string[] | null;
+          likes_count?: number | null;
+          comments_count?: number | null;
+          shares_count?: number | null;
+          visibility?: string | null;
+          post_type?: string | null;
+          is_anonymous?: boolean | null;
+          is_ai_bot?: boolean | null;
+          group_id?: string | null;
+          event_id?: string | null;
+          marketplace_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location?: string | null;
+          media_type?: string | null;
+          is_active?: boolean | null;
+          images?: string[] | null;
+          views_count?: number | null;
+          reach_count?: number | null;
+        };
+      };
       comments: {
         Row: {
-          id: string
-          post_id: string
-          user_id: string
-          content: string
-          created_at: string
-        }
+          id: string;
+          post_id: string;
+          user_id: string;
+          content: string;
+          parent_id: string | null;
+          likes_count: number | null;
+          is_anonymous: boolean | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
         Insert: {
-          id?: string
-          post_id: string
-          user_id: string
-          content: string
-          created_at?: string
-        }
+          id?: string;
+          post_id: string;
+          user_id: string;
+          content: string;
+          parent_id?: string | null;
+          likes_count?: number | null;
+          is_anonymous?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
         Update: {
-          id?: string
-          post_id?: string
-          user_id?: string
-          content?: string
-          created_at?: string
-        }
-      }
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          content?: string;
+          parent_id?: string | null;
+          likes_count?: number | null;
+          is_anonymous?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
       likes: {
         Row: {
-          id: string
-          post_id: string
-          user_id: string
-          created_at: string
-        }
+          id: string;
+          user_id: string;
+          post_id: string | null;
+          comment_id: string | null;
+          created_at: string | null;
+        };
         Insert: {
-          id?: string
-          post_id: string
-          user_id: string
-          created_at?: string
-        }
+          id?: string;
+          user_id: string;
+          post_id?: string | null;
+          comment_id?: string | null;
+          created_at?: string | null;
+        };
         Update: {
-          id?: string
-          post_id?: string
-          user_id?: string
-          created_at?: string
-        }
-      }
-      events: {
-        Row: {
-          id: string
-          title: string
-          description: string
-          location: string
-          start_time: string
-          end_time: string
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          title: string
-          description: string
-          location: string
-          start_time: string
-          end_time: string
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          title?: string
-          description?: string
-          location?: string
-          start_time?: string
-          end_time?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      event_rsvps: {
-        Row: {
-          id: string
-          event_id: string
-          user_id: string
-          status: 'going' | 'maybe' | 'not_going'
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          event_id: string
-          user_id: string
-          status?: 'going' | 'maybe' | 'not_going'
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          event_id?: string
-          user_id?: string
-          status?: 'going' | 'maybe' | 'not_going'
-          created_at?: string
-        }
-      }
-      marketplace_listings: {
-        Row: {
-          id: string
-          user_id: string
-          title: string
-          description: string
-          price: number
-          category: string
-          image_url: string | null
-          status: 'active' | 'sold' | 'inactive'
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title: string
-          description: string
-          price: number
-          category: string
-          image_url?: string | null
-          status?: 'active' | 'sold' | 'inactive'
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string
-          description?: string
-          price?: number
-          category?: string
-          image_url?: string | null
-          status?: 'active' | 'sold' | 'inactive'
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      groups: {
-        Row: {
-          id: string
-          name: string
-          description: string
-          is_private: boolean
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          description: string
-          is_private?: boolean
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          description?: string
-          is_private?: boolean
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      group_members: {
-        Row: {
-          id: string
-          group_id: string
-          user_id: string
-          role: 'admin' | 'moderator' | 'member'
-          joined_at: string
-        }
-        Insert: {
-          id?: string
-          group_id: string
-          user_id: string
-          role?: 'admin' | 'moderator' | 'member'
-          joined_at?: string
-        }
-        Update: {
-          id?: string
-          group_id?: string
-          user_id?: string
-          role?: 'admin' | 'moderator' | 'member'
-          joined_at?: string
-        }
-      }
-      group_posts: {
-        Row: {
-          id: string
-          group_id: string
-          user_id: string
-          content: string
-          image_url: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          group_id: string
-          user_id: string
-          content: string
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          group_id?: string
-          user_id?: string
-          content?: string
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
+          id?: string;
+          user_id?: string;
+          post_id?: string | null;
+          comment_id?: string | null;
+          created_at?: string | null;
+        };
+      };
       notifications: {
         Row: {
-          id: string
-          user_id: string
-          type: string
-          title: string
-          message: string
-          data: any
-          is_read: boolean
-          created_at: string
-        }
+          id: string;
+          sender_id: string | null;
+          receiver_id: string | null;
+          type: string;
+          post_id: string | null;
+          room_id: string | null;
+          message: string | null;
+          is_read: boolean | null;
+          created_at: string | null;
+          updated_at: string | null;
+          title: string | null;
+          user_id: string | null;
+          reference_id: string | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          type: string
-          title: string
-          message: string
-          data?: any
-          is_read?: boolean
-          created_at?: string
-        }
+          id?: string;
+          sender_id?: string | null;
+          receiver_id?: string | null;
+          type: string;
+          post_id?: string | null;
+          room_id?: string | null;
+          message?: string | null;
+          is_read?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          title?: string | null;
+          user_id?: string | null;
+          reference_id?: string | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          type?: string
-          title?: string
-          message?: string
-          data?: any
-          is_read?: boolean
-          created_at?: string
-        }
-      }
+          id?: string;
+          sender_id?: string | null;
+          receiver_id?: string | null;
+          type?: string;
+          post_id?: string | null;
+          room_id?: string | null;
+          message?: string | null;
+          is_read?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          title?: string | null;
+          user_id?: string | null;
+          reference_id?: string | null;
+        };
+      };
+      stories: {
+        Row: {
+          id: string;
+          user_id: string;
+          content: string | null;
+          media_url: string | null;
+          media_type: string | null;
+          duration: number | null;
+          views_count: number | null;
+          expires_at: string;
+          privacy: string | null;
+          allowed_users: string[] | null;
+          blocked_users: string[] | null;
+          is_deleted: boolean | null;
+          created_at: string | null;
+          is_active: boolean | null;
+          caption: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          content?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
+          duration?: number | null;
+          views_count?: number | null;
+          expires_at: string;
+          privacy?: string | null;
+          allowed_users?: string[] | null;
+          blocked_users?: string[] | null;
+          is_deleted?: boolean | null;
+          created_at?: string | null;
+          is_active?: boolean | null;
+          caption?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          content?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
+          duration?: number | null;
+          views_count?: number | null;
+          expires_at?: string;
+          privacy?: string | null;
+          allowed_users?: string[] | null;
+          blocked_users?: string[] | null;
+          is_deleted?: boolean | null;
+          created_at?: string | null;
+          is_active?: boolean | null;
+          caption?: string | null;
+        };
+      };
+      story_views: {
+        Row: {
+          id: string;
+          story_id: string;
+          viewer_id: string;
+          viewed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          story_id: string;
+          viewer_id: string;
+          viewed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          story_id?: string;
+          viewer_id?: string;
+          viewed_at?: string | null;
+        };
+      };
+      events: {
+        Row: {
+          id: string;
+          event_name: string;
+          user_id: string | null;
+          properties: any | null;
+          timestamp: string | null;
+          platform: string | null;
+          app_version: string | null;
+          session_id: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          event_name: string;
+          user_id?: string | null;
+          properties?: any | null;
+          timestamp?: string | null;
+          platform?: string | null;
+          app_version?: string | null;
+          session_id?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          event_name?: string;
+          user_id?: string | null;
+          properties?: any | null;
+          timestamp?: string | null;
+          platform?: string | null;
+          app_version?: string | null;
+          session_id?: string | null;
+          created_at?: string | null;
+        };
+      };
+      event_attendees: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          status: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          status?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          status?: string | null;
+          created_at?: string | null;
+        };
+      };
+      marketplace_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string | null;
+          price: number | null;
+          currency: string | null;
+          category: string;
+          condition: string | null;
+          images: string[] | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_name: string | null;
+          status: string | null;
+          is_negotiable: boolean | null;
+          tags: string[] | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          description?: string | null;
+          price?: number | null;
+          currency?: string | null;
+          category: string;
+          condition?: string | null;
+          images?: string[] | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          status?: string | null;
+          is_negotiable?: boolean | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          description?: string | null;
+          price?: number | null;
+          currency?: string | null;
+          category?: string;
+          condition?: string | null;
+          images?: string[] | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          status?: string | null;
+          is_negotiable?: boolean | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+      groups: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          avatar_url: string | null;
+          created_by: string;
+          is_public: boolean | null;
+          is_private: boolean | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_name: string | null;
+          radius_miles: number | null;
+          member_count: number | null;
+          post_count: number | null;
+          max_members: number | null;
+          group_type: string | null;
+          tags: string[] | null;
+          created_at: string | null;
+          updated_at: string | null;
+          is_active: boolean | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          avatar_url?: string | null;
+          created_by: string;
+          is_public?: boolean | null;
+          is_private?: boolean | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          radius_miles?: number | null;
+          member_count?: number | null;
+          post_count?: number | null;
+          max_members?: number | null;
+          group_type?: string | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          is_active?: boolean | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          avatar_url?: string | null;
+          created_by?: string;
+          is_public?: boolean | null;
+          is_private?: boolean | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          radius_miles?: number | null;
+          member_count?: number | null;
+          post_count?: number | null;
+          max_members?: number | null;
+          group_type?: string | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          is_active?: boolean | null;
+        };
+      };
+      group_members: {
+        Row: {
+          id: string;
+          group_id: string;
+          user_id: string;
+          role: string | null;
+          joined_at: string | null;
+          is_active: boolean | null;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          user_id: string;
+          role?: string | null;
+          joined_at?: string | null;
+          is_active?: boolean | null;
+        };
+        Update: {
+          id?: string;
+          group_id?: string;
+          user_id?: string;
+          role?: string | null;
+          joined_at?: string | null;
+          is_active?: boolean | null;
+        };
+      };
       messages: {
         Row: {
-          id: string
-          room_id: string
-          sender_id: string
-          content: string
-          created_at: string
-        }
+          id: string;
+          room_id: string;
+          user_id: string;
+          content: string;
+          message_type: string | null;
+          file_url: string | null;
+          location_data: any | null;
+          is_edited: boolean | null;
+          edited_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          sender_id: string | null;
+        };
         Insert: {
-          id?: string
-          room_id: string
-          sender_id: string
-          content: string
-          created_at?: string
-        }
+          id?: string;
+          room_id: string;
+          user_id: string;
+          content: string;
+          message_type?: string | null;
+          file_url?: string | null;
+          location_data?: any | null;
+          is_edited?: boolean | null;
+          edited_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          sender_id?: string | null;
+        };
         Update: {
-          id?: string
-          room_id?: string
-          sender_id?: string
-          content?: string
-          created_at?: string
-        }
-      }
+          id?: string;
+          room_id?: string;
+          user_id?: string;
+          content?: string;
+          message_type?: string | null;
+          file_url?: string | null;
+          location_data?: any | null;
+          is_edited?: boolean | null;
+          edited_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          sender_id?: string | null;
+        };
+      };
       private_messages: {
         Row: {
-          id: string
-          sender_id: string
-          receiver_id: string
-          content: string
-          created_at: string
-        }
+          id: string;
+          sender_id: string;
+          content: string;
+          message_type: string | null;
+          file_url: string | null;
+          location_data: any | null;
+          is_read: boolean | null;
+          read_at: string | null;
+          is_edited: boolean | null;
+          edited_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          media_url: string | null;
+          reply_to_id: string | null;
+          receiver_id: string;
+        };
         Insert: {
-          id?: string
-          sender_id: string
-          receiver_id: string
-          content: string
-          created_at?: string
-        }
+          id?: string;
+          sender_id: string;
+          content: string;
+          message_type?: string | null;
+          file_url?: string | null;
+          location_data?: any | null;
+          is_read?: boolean | null;
+          read_at?: string | null;
+          is_edited?: boolean | null;
+          edited_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          media_url?: string | null;
+          reply_to_id?: string | null;
+          receiver_id: string;
+        };
         Update: {
-          id?: string
-          sender_id?: string
-          receiver_id?: string
-          content?: string
-          created_at?: string
-        }
-      }
+          id?: string;
+          sender_id?: string;
+          content?: string;
+          message_type?: string | null;
+          file_url?: string | null;
+          location_data?: any | null;
+          is_read?: boolean | null;
+          read_at?: string | null;
+          is_edited?: boolean | null;
+          edited_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          media_url?: string | null;
+          reply_to_id?: string | null;
+          receiver_id?: string;
+        };
+      };
       rooms: {
         Row: {
-          id: string
-          name: string
-          description: string | null
-          is_private: boolean
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          name: string;
+          description: string | null;
+          created_by: string;
+          is_private: boolean | null;
+          max_members: number | null;
+          group_id: string | null;
+          image_url: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          member_count: number | null;
+          last_message: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          city: string | null;
+          neighborhood: string | null;
+          creator_id: string | null;
+        };
         Insert: {
-          id?: string
-          name: string
-          description?: string | null
-          is_private?: boolean
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
+          id?: string;
+          name: string;
+          description?: string | null;
+          created_by: string;
+          is_private?: boolean | null;
+          max_members?: number | null;
+          group_id?: string | null;
+          image_url?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          member_count?: number | null;
+          last_message?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
+          neighborhood?: string | null;
+          creator_id?: string | null;
+        };
         Update: {
-          id?: string
-          name?: string
-          description?: string | null
-          is_private?: boolean
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_by?: string;
+          is_private?: boolean | null;
+          max_members?: number | null;
+          group_id?: string | null;
+          image_url?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          member_count?: number | null;
+          last_message?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
+          neighborhood?: string | null;
+          creator_id?: string | null;
+        };
+      };
       room_members: {
         Row: {
-          id: string
-          room_id: string
-          user_id: string
-          role: 'admin' | 'moderator' | 'member'
-          joined_at: string
-        }
+          id: string;
+          room_id: string;
+          user_id: string;
+          role: string | null;
+          joined_at: string | null;
+          last_read_at: string | null;
+          is_active: boolean | null;
+        };
         Insert: {
-          id?: string
-          room_id: string
-          user_id: string
-          role?: 'admin' | 'moderator' | 'member'
-          joined_at?: string
-        }
+          id?: string;
+          room_id: string;
+          user_id: string;
+          role?: string | null;
+          joined_at?: string | null;
+          last_read_at?: string | null;
+          is_active?: boolean | null;
+        };
         Update: {
-          id?: string
-          room_id?: string
-          user_id?: string
-          role?: 'admin' | 'moderator' | 'member'
-          joined_at?: string
-        }
-      }
+          id?: string;
+          room_id?: string;
+          user_id?: string;
+          role?: string | null;
+          joined_at?: string | null;
+          last_read_at?: string | null;
+          is_active?: boolean | null;
+        };
+      };
       friends: {
         Row: {
-          id: string
-          user_id: string
-          friend_id: string
-          created_at: string
-        }
+          id: string;
+          user_id: string | null;
+          friend_id: string | null;
+          created_at: string | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          friend_id: string
-          created_at?: string
-        }
+          id?: string;
+          user_id?: string | null;
+          friend_id?: string | null;
+          created_at?: string | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          friend_id?: string
-          created_at?: string
-        }
-      }
+          id?: string;
+          user_id?: string | null;
+          friend_id?: string | null;
+          created_at?: string | null;
+        };
+      };
       friend_requests: {
         Row: {
-          id: string
-          from_user_id: string
-          to_user_id: string
-          status: 'pending' | 'accepted' | 'rejected'
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          sender_id: string | null;
+          receiver_id: string | null;
+          status: string | null;
+          message: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
         Insert: {
-          id?: string
-          from_user_id: string
-          to_user_id: string
-          status?: 'pending' | 'accepted' | 'rejected'
-          created_at?: string
-          updated_at?: string
-        }
+          id?: string;
+          sender_id?: string | null;
+          receiver_id?: string | null;
+          status?: string | null;
+          message?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
         Update: {
-          id?: string
-          from_user_id?: string
-          to_user_id?: string
-          status?: 'pending' | 'accepted' | 'rejected'
-          created_at?: string
-          updated_at?: string
-        }
-      }
+          id?: string;
+          sender_id?: string | null;
+          receiver_id?: string | null;
+          status?: string | null;
+          message?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
       user_locations: {
         Row: {
-          id: string
-          user_id: string
-          latitude: number
-          longitude: number
-          address: string | null
-          city: string | null
-          state: string | null
-          country: string | null
-          postal_code: string | null
-          updated_at: string
-        }
+          id: string;
+          user_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          city: string | null;
+          neighborhood: string | null;
+          is_visible: boolean | null;
+          privacy_level: string | null;
+          last_updated: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          latitude: number
-          longitude: number
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          country?: string | null
-          postal_code?: string | null
-          updated_at?: string
-        }
+          id?: string;
+          user_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
+          neighborhood?: string | null;
+          is_visible?: boolean | null;
+          privacy_level?: string | null;
+          last_updated?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          latitude?: number
-          longitude?: number
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          country?: string | null
-          postal_code?: string | null
-          updated_at?: string
-        }
-      }
+          id?: string;
+          user_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
+          neighborhood?: string | null;
+          is_visible?: boolean | null;
+          privacy_level?: string | null;
+          last_updated?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
       user_preferences: {
         Row: {
-          id: string
-          user_id: string
-          theme: 'light' | 'dark' | 'auto'
-          notifications_enabled: boolean
-          email_notifications: boolean
-          push_notifications: boolean
-          privacy_level: 'public' | 'friends' | 'private'
-          location_sharing: boolean
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          user_id: string;
+          theme: string | null;
+          language: string | null;
+          timezone: string | null;
+          privacy_settings: any | null;
+          notification_settings: any | null;
+          created_at: string | null;
+          updated_at: string | null;
+          location_privacy_settings: any | null;
+          location_notification_settings: any | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          theme?: 'light' | 'dark' | 'auto'
-          notifications_enabled?: boolean
-          email_notifications?: boolean
-          push_notifications?: boolean
-          privacy_level?: 'public' | 'friends' | 'private'
-          location_sharing?: boolean
-          created_at?: string
-          updated_at?: string
-        }
+          id?: string;
+          user_id: string;
+          theme?: string | null;
+          language?: string | null;
+          timezone?: string | null;
+          privacy_settings?: any | null;
+          notification_settings?: any | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location_privacy_settings?: any | null;
+          location_notification_settings?: any | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          theme?: 'light' | 'dark' | 'auto'
-          notifications_enabled?: boolean
-          email_notifications?: boolean
-          push_notifications?: boolean
-          privacy_level?: 'public' | 'friends' | 'private'
-          location_sharing?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      get_user_friends: {
-        Args: {
-          user_uuid: string
-        }
-        Returns: {
-          friend_id: string
-          friend_name: string
-          friend_avatar: string
-        }[]
-      }
-      get_pending_friend_requests: {
-        Args: {
-          user_uuid: string
-        }
-        Returns: {
-          request_id: string
-          from_user_id: string
-          from_user_name: string
-          from_user_avatar: string
-          created_at: string
-        }[]
-      }
-      accept_friend_request: {
-        Args: {
-          request_uuid: string
-        }
-        Returns: boolean
-      }
-      reject_friend_request: {
-        Args: {
-          request_uuid: string
-        }
-        Returns: boolean
-      }
-      send_friend_request: {
-        Args: {
-          to_user_uuid: string
-        }
-        Returns: boolean
-      }
-      remove_friend: {
-        Args: {
-          friend_uuid: string
-        }
-        Returns: boolean
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-  }
+          id?: string;
+          user_id?: string;
+          theme?: string | null;
+          language?: string | null;
+          timezone?: string | null;
+          privacy_settings?: any | null;
+          notification_settings?: any | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          location_privacy_settings?: any | null;
+          location_notification_settings?: any | null;
+        };
+      };
+    };
+  };
 }
 
-// App-specific types
+// Additional interfaces for the app
 export interface User {
-  id: string
-  email: string | null
-  full_name: string | null
-  avatar_url: string | null
-  created_at: string | null
-  updated_at: string | null
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url?: string;
+  email: string;
+  is_private: boolean;
+  created_at: string;
+  bio?: string;
+  neighborhood?: string;
+  location?: string;
+  phone?: string;
+  website?: string;
+  interests?: string[];
+  followers_count?: number;
+  following_count?: number;
+  posts_count?: number;
+  last_active?: string;
+  is_verified?: boolean;
+  profile_visibility?: string;
+  cover_image_url?: string;
+  role?: string;
 }
 
 export interface Post {
-  id: string
-  user_id: string
-  content: string
-  image_url: string | null
-  created_at: string
-  updated_at: string
-  user?: User
-  likes_count?: number
-  comments_count?: number
-  is_liked?: boolean
+  id: string;
+  user_id: string;
+  content: string;
+  media_urls?: string[];
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  created_at: string;
+  user?: User;
+  likes_count?: number;
+  comments_count?: number;
+  is_liked?: boolean;
 }
 
 export interface Comment {
-  id: string
-  post_id: string
-  user_id: string
-  content: string
-  created_at: string
-  user?: User
-}
-
-export interface Event {
-  id: string
-  title: string
-  description: string
-  location: string
-  start_time: string
-  end_time: string
-  created_by: string
-  created_at: string
-  updated_at: string
-  creator?: User
-  rsvp_status?: 'going' | 'maybe' | 'not_going'
-  rsvp_count?: number
-}
-
-export interface MarketplaceListing {
-  id: string
-  user_id: string
-  title: string
-  description: string
-  price: number
-  category: string
-  image_url: string | null
-  status: 'active' | 'sold' | 'inactive'
-  created_at: string
-  updated_at: string
-  seller?: User
-}
-
-export interface Group {
-  id: string
-  name: string
-  description: string
-  is_private: boolean
-  created_by: string
-  created_at: string
-  updated_at: string
-  creator?: User
-  member_count?: number
-  user_role?: 'admin' | 'moderator' | 'member'
-}
-
-export interface GroupPost {
-  id: string
-  group_id: string
-  user_id: string
-  content: string
-  image_url: string | null
-  created_at: string
-  updated_at: string
-  user?: User
-}
-
-export interface Notification {
-  id: string
-  user_id: string
-  type: string
-  title: string
-  message: string
-  data: any
-  is_read: boolean
-  created_at: string
-}
-
-export interface Message {
-  id: string
-  room_id: string
-  sender_id: string
-  content: string
-  created_at: string
-  sender?: User
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  user?: User;
 }
 
 export interface PrivateMessage {
-  id: string
-  sender_id: string
-  receiver_id: string
-  content: string
-  created_at: string
-  sender?: User
-  receiver?: User
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  message_type: string;
+  is_read: boolean;
+  created_at: string;
+  sender_username?: string;
+  sender_full_name?: string;
+  sender_avatar_url?: string;
 }
 
+export interface Message {
+  id: string;
+  room_id: string;
+  user_id: string;
+  content: string;
+  message_type: string;
+  file_url?: string;
+  location_data?: any;
+  is_edited: boolean;
+  edited_at?: string;
+  created_at: string;
+  updated_at?: string;
+  sender_id: string;
+}
+
+export interface Conversation {
+  other_user_id: string;
+  other_username: string;
+  other_full_name: string;
+  other_avatar_url?: string;
+  last_message_content: string;
+  last_message_time: string;
+  unread_count: number;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string;
+  is_public: boolean;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  max_members: number;
+  tags: string[];
+  creator_id: string;
+  member_count: number;
+  creator_username?: string;
+  creator_full_name?: string;
+  role?: string;
+  joined_at?: string;
+}
+
+export interface GroupMember {
+  user_id: string;
+  username: string;
+  full_name: string;
+  avatar_url?: string;
+  role: string;
+  joined_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'like' | 'comment' | 'follow' | 'message' | 'friend_request';
+  data?: {
+    sender_id?: string;
+    post_id?: string;
+    room_id?: string;
+    message?: string;
+  };
+  is_read: boolean;
+  created_at: string;
+  updated_at?: string;
+  sender?: User;
+}
+
+export interface FollowStats {
+  followers_count: number;
+  following_count: number;
+}
+
+// Additional interfaces for missing types
 export interface Room {
-  id: string
-  name: string
-  description: string | null
-  is_private: boolean
-  created_by: string
-  created_at: string
-  updated_at: string
-  creator?: User
-  member_count?: number
-  user_role?: 'admin' | 'moderator' | 'member'
-}
-
-export interface Friend {
-  id: string
-  user_id: string
-  friend_id: string
-  created_at: string
-  friend?: User
-}
-
-export interface FriendRequest {
-  id: string
-  from_user_id: string
-  to_user_id: string
-  status: 'pending' | 'accepted' | 'rejected'
-  created_at: string
-  updated_at: string
-  from_user?: User
-  to_user?: User
-}
-
-export interface UserLocation {
-  id: string
-  user_id: string
-  latitude: number
-  longitude: number
-  address: string | null
-  city: string | null
-  state: string | null
-  country: string | null
-  postal_code: string | null
-  updated_at: string
-}
-
-export interface UserPreferences {
-  id: string
-  user_id: string
-  theme: 'light' | 'dark' | 'auto'
-  notifications_enabled: boolean
-  email_notifications: boolean
-  push_notifications: boolean
-  privacy_level: 'public' | 'friends' | 'private'
-  location_sharing: boolean
-  created_at: string
-  updated_at: string
+  id: string;
+  name: string;
+  description?: string;
+  is_private: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
+  member_count?: number;
+  max_members?: number;
+  category?: string;
+  tags?: string[];
+  avatar_url?: string;
+  cover_image_url?: string;
+  last_message?: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  neighborhood?: string;
+  creator_id?: string;
+  image_url?: string;
+  group_id?: string;
 }
 
 export interface Location {
-  latitude: number
-  longitude: number
-  address?: string
-  city?: string
-  state?: string
-  country?: string
-  postal_code?: string
+  id: string;
+  user_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
 }
+
+// Additional interfaces for complete-api.ts
+export interface Story {
+  id: string;
+  user_id: string;
+  content?: string;
+  media_url?: string;
+  media_type?: string;
+  duration?: number;
+  views_count?: number;
+  expires_at: string;
+  privacy?: string;
+  allowed_users?: string[];
+  blocked_users?: string[];
+  is_deleted?: boolean;
+  created_at: string;
+  is_active?: boolean;
+  caption?: string;
+}
+
+export interface Friend {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  created_at: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  status: string;
+  message?: string;
+  created_at: string;
+  updated_at?: string;
+  from_user?: {
+    id: string;
+    full_name: string;
+    avatar_url?: string;
+    email: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+}
+
+export interface Event {
+  id: string;
+  event_name: string;
+  user_id?: string;
+  properties?: any;
+  timestamp?: string;
+  platform?: string;
+  app_version?: string;
+  session_id?: string;
+  created_at?: string;
+}
+
+export interface MarketplaceListing {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  category: string;
+  condition?: string;
+  images?: string[];
+  location_lat?: number;
+  location_lng?: number;
+  location_name?: string;
+  status?: string;
+  is_negotiable?: boolean;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Add proper interfaces for real-time payloads
+export interface RealTimePayload<T = any> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: T;
+  old?: T;
+  table: string;
+  schema: string;
+}
+
+export interface NotificationPayload extends RealTimePayload<Notification> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: Notification;
+  old?: Notification;
+}
+
+export interface MessagePayload extends RealTimePayload<Message> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: Message;
+  old?: Message;
+}
+
+export interface PrivateMessagePayload extends RealTimePayload<PrivateMessage> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: PrivateMessage;
+  old?: PrivateMessage;
+}
+
+// Subscription status types
+export type SubscriptionStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
 // API Response types
-export interface ApiResponse<T> {
-  data: T | null
-  error: string | null
-  success: boolean
+export interface ApiResponse<T = any> {
+  data: T | null;
+  error: string | null;
+  success: boolean;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[]
-  count: number
-  page: number
-  limit: number
-  total_pages: number
-}
-
-// Navigation types
-export type RootStackParamList = {
-  Home: undefined
-  Login: undefined
-  Register: undefined
-  Profile: { userId?: string }
-  Chat: { roomId: string }
-  PrivateChat: { friendId: string }
-  CreatePost: undefined
-  CreateEvent: undefined
-  CreateListing: undefined
-  CreateGroup: undefined
-  Search: undefined
-  Friends: undefined
-  FriendRequests: undefined
-  Settings: undefined
-}
-
-// Theme types
-export interface Theme {
-  colors: {
-    primary: string
-    secondary: string
-    background: string
-    surface: string
-    text: string
-    textSecondary: string
-    border: string
-    error: string
-    success: string
-    warning: string
-  }
-  spacing: {
-    xs: number
-    sm: number
-    md: number
-    lg: number
-    xl: number
-  }
-  borderRadius: {
-    sm: number
-    md: number
-    lg: number
-  }
+export interface PaginatedResponse<T = any> extends ApiResponse<T[]> {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
 } 

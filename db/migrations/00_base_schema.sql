@@ -84,5 +84,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
 GRANT SELECT ON public.public_profiles TO authenticated;
 
 -- Test the setup by inserting a sample profile (optional)
+-- TODO: Remove sample data - use real user registration instead
 -- INSERT INTO public.profiles (id, name, email, bio, location) 
 -- VALUES ('00000000-0000-0000-0000-000000000000', 'Test User', 'test@example.com', 'Test bio', 'Test Location'); 

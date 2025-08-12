@@ -5,76 +5,82 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
-interface NeuralNode {
-  x: Animated.Value;
-  y: Animated.Value;
-  scale: Animated.Value;
-  opacity: Animated.Value;
-}
-
 interface AdvancedAnimationsProps {
-  children: React.ReactNode;
-  intensity?: 'low' | 'medium' | 'high';
+  children?: React.ReactNode;
   type?: 'neural' | 'particles' | 'waves' | 'pulse';
+  intensity?: number;
+  duration?: number;
 }
 
 export const AdvancedAnimations: React.FC<AdvancedAnimationsProps> = ({
   children,
-  intensity = 'medium',
-  type = 'neural'
+  type = 'neural',
+  intensity = 1,
+  duration = 3000,
 }) => {
-  const { theme } = useTheme();
-  const nodes = useRef<NeuralNode[]>([]);
-  const animationRef = useRef<Animated.Value>(new Animated.Value(0));
+  const { colors } = useTheme();
+  const animationRef = useRef(new Animated.Value(0));
+  const nodes = useRef<Array<{
+    x: Animated.ValueXY;
+    scale: Animated.Value;
+    opacity: Animated.Value;
+  }>>([]);
 
-  // Create neural network nodes
   useEffect(() => {
-    const nodeCount = intensity === 'high' ? 12 : intensity === 'medium' ? 8 : 4;
+    // Initialize neural nodes
+    const nodeCount = Math.floor(intensity * 20);
     nodes.current = Array.from({ length: nodeCount }, () => ({
-      x: new Animated.Value(Math.random() * width),
-      y: new Animated.Value(Math.random() * height),
-      scale: new Animated.Value(0.5 + Math.random() * 0.5),
-      opacity: new Animated.Value(0.3 + Math.random() * 0.4),
+      x: new Animated.ValueXY(),
+      scale: new Animated.Value(1),
+      opacity: new Animated.Value(0.8),
     }));
 
-    // Start neural animation
-    const animateNodes = () => {
-      const animations = nodes.current.map((node, index) => {
-        const duration = 3000 + Math.random() * 2000;
-        const delay = index * 200;
+    // Randomize initial positions
+    nodes.current.forEach((node) => {
+      node.x.setValue({
+        x: Math.random() * width,
+        y: Math.random() * height,
+      });
+    });
 
-        return Animated.parallel([
-          Animated.timing(node.x, {
-            toValue: Math.random() * width,
-            duration,
-            delay,
-            useNativeDriver: false,
-          }),
-          Animated.timing(node.y, {
-            toValue: Math.random() * height,
-            duration,
-            delay,
-            useNativeDriver: false,
-          }),
-          Animated.sequence([
-            Animated.timing(node.scale, {
-              toValue: 1.2,
-              duration: duration / 2,
+    // Start animations
+    const animations = nodes.current.map((node, index) => {
+      const randomX = Math.random() * width;
+      const randomY = Math.random() * height;
+      const randomDuration = duration + Math.random() * 2000;
+
+      return Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(node.x.x, {
+              toValue: randomX,
+              duration: randomDuration,
               useNativeDriver: false,
             }),
-            Animated.timing(node.scale, {
-              toValue: 0.8,
-              duration: duration / 2,
+            Animated.timing(node.x.y, {
+              toValue: randomY,
+              duration: randomDuration,
               useNativeDriver: false,
             }),
           ]),
-        ]);
-      });
+          Animated.parallel([
+            Animated.timing(node.x.x, {
+              toValue: Math.random() * width,
+              duration: randomDuration,
+              useNativeDriver: false,
+            }),
+            Animated.timing(node.x.y, {
+              toValue: Math.random() * height,
+              duration: randomDuration,
+              useNativeDriver: false,
+            }),
+          ]),
+        ])
+      );
+    });
 
-      Animated.parallel(animations).start(() => animateNodes());
-    };
-
-    animateNodes();
+    // Start all animations
+    animations.forEach((animation) => animation.start());
 
     // Pulse animation
     Animated.loop(
@@ -94,8 +100,8 @@ export const AdvancedAnimations: React.FC<AdvancedAnimationsProps> = ({
 
     return () => {
       nodes.current.forEach(node => {
-        node.x.stopAnimation();
-        node.y.stopAnimation();
+        node.x.x.stopAnimation();
+        node.x.y.stopAnimation();
         node.scale.stopAnimation();
         node.opacity.stopAnimation();
       });
@@ -111,15 +117,15 @@ export const AdvancedAnimations: React.FC<AdvancedAnimationsProps> = ({
           style={[
             styles.neuralNode,
             {
-              left: node.x,
-              top: node.y,
+              left: node.x.x,
+              top: node.x.y,
               transform: [{ scale: node.scale }],
               opacity: node.opacity,
             },
           ]}
         >
           <LinearGradient
-            colors={theme.colors.gradients.neural as [string, string]}
+            colors={colors.gradients.primary as [string, string]}
             style={styles.nodeGradient}
           />
         </Animated.View>
@@ -128,62 +134,49 @@ export const AdvancedAnimations: React.FC<AdvancedAnimationsProps> = ({
   );
 
   const renderParticleSystem = () => (
-    <Animated.View
-      style={[
-        styles.particleContainer,
-        {
-          opacity: animationRef.current.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.3, 0.8],
-          }),
-        },
-      ]}
-    >
-      {Array.from({ length: 20 }).map((_, index) => (
+    <View style={styles.particleContainer}>
+      {Array.from({ length: 50 }).map((_, index) => (
         <Animated.View
           key={index}
           style={[
             styles.particle,
             {
-              backgroundColor: theme.colors.neural.primary,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              transform: [
-                {
-                  scale: animationRef.current.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.5, 1.5],
-                  }),
-                },
-              ],
+              backgroundColor: colors.neural.primary,
+              left: Math.random() * width,
+              top: Math.random() * height,
             },
           ]}
         />
       ))}
-    </Animated.View>
+    </View>
   );
 
   const renderWaveEffect = () => (
-    <Animated.View
-      style={[
-        styles.waveContainer,
-        {
-          transform: [
+    <View style={styles.waveContainer}>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.wave,
             {
-              scale: animationRef.current.interpolate({
+              borderColor: colors.neural.primary,
+              transform: [
+                {
+                  scale: animationRef.current.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 2],
+                  }),
+                },
+              ],
+              opacity: animationRef.current.interpolate({
                 inputRange: [0, 1],
-                outputRange: [1, 1.2],
+                outputRange: [0.8, 0],
               }),
             },
-          ],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={[theme.colors.neural.primary + '20', 'transparent']}
-        style={styles.wave}
-      />
-    </Animated.View>
+          ]}
+        />
+      ))}
+    </View>
   );
 
   const renderContent = () => {
@@ -216,7 +209,7 @@ export const AdvancedAnimations: React.FC<AdvancedAnimationsProps> = ({
             ]}
           >
             <LinearGradient
-              colors={theme.colors.gradients.neural as [string, string]}
+              colors={colors.gradients.primary as [string, string]}
               style={styles.pulseGradient}
             />
           </Animated.View>

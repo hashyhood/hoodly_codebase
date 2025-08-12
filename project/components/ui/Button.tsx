@@ -1,19 +1,21 @@
-import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ViewStyle,
+import React, { useState } from 'react';
+import { 
+  TouchableOpacity, 
+  Text, 
+  StyleSheet, 
+  ViewStyle, 
   TextStyle,
-  ActivityIndicator,
+  Animated,
+  View
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 
 interface ButtonProps {
   title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  onPress?: () => void;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'premium';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -23,7 +25,7 @@ interface ButtonProps {
   fullWidth?: boolean;
 }
 
-export function Button({
+export const Button: React.FC<ButtonProps> = ({
   title,
   onPress,
   variant = 'primary',
@@ -34,171 +36,216 @@ export function Button({
   style,
   textStyle,
   fullWidth = false,
-}: ButtonProps) {
-  const buttonStyle = [
-    styles.base,
-    styles[size],
-    styles[variant],
-    fullWidth && styles.fullWidth,
-    disabled && styles.disabled,
-    style,
-  ];
+}) => {
+  const [isPressed, setIsPressed] = useState(false);
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
-  const textStyleCombined = [
-    styles.text,
-    styles[`${size}Text`],
-    styles[`${variant}Text`],
-    disabled && styles.disabledText,
-    textStyle,
-  ];
+  const handlePressIn = () => {
+    if (disabled || loading) return;
+    setIsPressed(true);
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
 
-  const renderContent = () => (
-    <>
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' ? '#fff' : '#FF6B9D'}
-        />
-      ) : (
-        <>
-          {icon && <>{icon}</>}
-          <Text style={textStyleCombined}>{title}</Text>
-        </>
-      )}
-    </>
-  );
+  const handlePressOut = () => {
+    if (disabled || loading) return;
+    setIsPressed(false);
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
 
-  if (variant === 'primary') {
-    return (
+  const getSizeStyles = (): ViewStyle => {
+    switch (size) {
+      case 'small':
+        return {
+          paddingHorizontal: getSpacing('xs'),
+          paddingVertical: getSpacing('xs'),
+          borderRadius: getRadius('xs'),
+        };
+      case 'large':
+        return {
+          paddingHorizontal: getSpacing('xl'),
+          paddingVertical: getSpacing('lg'),
+          borderRadius: getRadius('lg'),
+        };
+      default:
+        return {
+          paddingHorizontal: getSpacing('md'),
+          paddingVertical: getSpacing('sm'),
+          borderRadius: getRadius('sm'),
+        };
+    }
+  };
+
+  const getTextSize = (): number => {
+    switch (size) {
+      case 'small':
+        return 14;
+      case 'large':
+        return 18;
+      default:
+        return 16;
+    }
+  };
+
+  const getVariantStyles = (): { container: ViewStyle; text: TextStyle } => {
+    switch (variant) {
+      case 'primary':
+        return {
+          container: {
+            backgroundColor: getColor('surface'),
+            borderColor: getColor('divider'),
+          },
+          text: {
+            color: getColor('textPrimary'),
+          },
+        };
+      case 'secondary':
+        return {
+          container: {
+            borderColor: getColor('success'),
+          },
+          text: {
+            color: getColor('success'),
+          },
+        };
+      case 'outline':
+        return {
+          container: {
+            backgroundColor: 'transparent',
+            borderColor: getColor('textSecondary'),
+          },
+          text: {
+            color: getColor('textSecondary'),
+          },
+        };
+      case 'ghost':
+        return {
+          container: {
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+          },
+          text: {
+            color: getColor('textPrimary'),
+          },
+        };
+      case 'premium':
+        return {
+          container: {
+            backgroundColor: getColor('success'),
+          },
+          text: {
+            color: getColor('textPrimary'),
+          },
+        };
+      default:
+        return {
+          container: {},
+          text: {},
+        };
+    }
+  };
+
+  const variantStyles = getVariantStyles();
+  const sizeStyles = getSizeStyles();
+
+  const getDisabledStyles = (): ViewStyle => {
+    if (disabled) {
+      return {
+        opacity: 0.5,
+        backgroundColor: getColor('surface'),
+      };
+    }
+    return {};
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
-        style={buttonStyle}
+        style={[
+          styles.container,
+          sizeStyles,
+          variantStyles.container,
+          fullWidth && styles.fullWidth,
+          getDisabledStyles(),
+          style,
+        ]}
         onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         disabled={disabled || loading}
         activeOpacity={0.8}
       >
-        <LinearGradient
-          colors={['#FF6B9D', '#4A90E2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradient}
-        >
-          {renderContent()}
-        </LinearGradient>
+        {variant === 'premium' ? (
+          <BlurView intensity={30} style={[styles.premiumContainer, sizeStyles]}>
+            <LinearGradient
+              colors={theme.gradients.primary as [string, string]}
+              style={styles.premiumGradient}
+            >
+              {icon && <View style={styles.iconContainer}>{icon}</View>}
+              <Text style={[styles.text, getVariantStyles().text, textStyle]}>
+                {loading ? 'Loading...' : title}
+              </Text>
+            </LinearGradient>
+          </BlurView>
+        ) : (
+          <>
+            {icon && <View style={styles.iconContainer}>{icon}</View>}
+            <Text style={[
+              styles.text,
+              { fontSize: getTextSize() },
+              getVariantStyles().text,
+              textStyle,
+            ]}>
+              {loading ? 'Loading...' : title}
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
-    );
-  }
-
-  return (
-    <TouchableOpacity
-      style={buttonStyle}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-    >
-      {renderContent()}
-    </TouchableOpacity>
+    </Animated.View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: 12,
+  container: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  
-  // Sizes
-  small: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-  medium: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    minHeight: 48,
-  },
-  large: {
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    minHeight: 56,
-  },
-  
-  // Variants
-  primary: {
-    backgroundColor: 'transparent',
-  },
-  secondary: {
-    backgroundColor: 'rgba(255, 107, 157, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 157, 0.3)',
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#FF6B9D',
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  danger: {
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
-  },
-  
-  // Text styles
-  text: {
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  smallText: {
-    fontSize: 14,
-  },
-  mediumText: {
-    fontSize: 16,
-  },
-  largeText: {
-    fontSize: 18,
-  },
-  
-  primaryText: {
-    color: '#fff',
-  },
-  secondaryText: {
-    color: '#FF6B9D',
-  },
-  outlineText: {
-    color: '#FF6B9D',
-  },
-  ghostText: {
-    color: '#FF6B9D',
-  },
-  dangerText: {
-    color: '#FF6B6B',
-  },
-  
-  // States
-  disabled: {
-    opacity: 0.5,
-  },
-  disabledText: {
-    opacity: 0.7,
-  },
-  
-  // Layout
   fullWidth: {
     width: '100%',
   },
-  
-  gradient: {
-    flex: 1,
-    borderRadius: 12,
+  disabled: {
+    opacity: 0.5,
+  },
+  premiumContainer: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  premiumGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+  },
+  iconContainer: {
+    marginRight: 8,
+  },
+  text: {
+    fontWeight: '600',
+    textAlign: 'center',
   },
 }); 

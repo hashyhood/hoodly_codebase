@@ -1,10 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Supabase credentials
-const supabaseUrl = 'https://ikeocbgjivpifvwzllkm.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZW9jYmdqaXZwaWZ2d3psbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMzkwMDMsImV4cCI6MjA2NzkxNTAwM30.qUuQhufz_ddMI0c__i7SovJZVU74TXQc1OPOV99aRl0';
+// Supabase credentials from environment (robust fallbacks)
+const extras: any = (Constants as any)?.expoConfig?.extra || (Constants as any)?.manifest?.extra || {};
+const supabaseUrl =
+  (process.env.EXPO_PUBLIC_SUPABASE_URL as string | undefined) ||
+  (extras.EXPO_PUBLIC_SUPABASE_URL as string | undefined) ||
+  (process.env.SUPABASE_URL as string | undefined) ||
+  (extras.SUPABASE_URL as string | undefined) ||
+  (process.env.SUPABASE_URL?.trim?.() as string | undefined);
+const supabaseAnonKey =
+  (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string | undefined) ||
+  (extras.EXPO_PUBLIC_SUPABASE_ANON_KEY as string | undefined) ||
+  (process.env.SUPABASE_ANON_KEY as string | undefined) ||
+  (extras.SUPABASE_ANON_KEY as string | undefined) ||
+  (process.env.SUPABASE_ANON_KEY?.trim?.() as string | undefined);
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  // Throw early to prevent silent misconfiguration in production builds
+  throw new Error(
+    'Supabase environment variables are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env or app.json extra.'
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -59,12 +78,17 @@ export const createRealtimeSubscription = (channelName: string, callback: (paylo
     return channel;
   } catch (error) {
     console.warn('Failed to create Supabase Realtime subscription:', error);
-    // Return a mock channel that doesn't block rendering
-    return {
-      on: () => ({ subscribe: () => {} }),
-      subscribe: () => {},
-      unsubscribe: () => {},
-    };
+    // Implement proper error handling instead of mock channel
+    // Log the error for debugging
+    console.error('Realtime subscription error details:', {
+      channelName,
+      error: error instanceof Error ? error.message : error,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Return null to indicate subscription failure
+    // The calling code should handle this gracefully
+    return null;
   }
 };
 
@@ -682,116 +706,46 @@ export interface Database {
 }
 
 // Auth helpers
-export const auth = {
-  signUp: async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-    return { data, error };
-  },
+export const getCurrentUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
 
-  signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
-  },
-
-  signOut: async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  },
-
-  getCurrentUser: () => {
-    return supabase.auth.getUser();
-  },
-
-  onAuthStateChange: (callback: (event: string, session: any) => void) => {
-    return supabase.auth.onAuthStateChange(callback);
-  },
+export const getCurrentSession = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
 };
 
 // Storage helpers
-export const storage = {
-  uploadImage: async (file: any, path: string) => {
-    const { data, error } = await supabase.storage
-      .from('uploads')
-      .upload(path, file);
-    return { data, error };
-  },
-
-  getPublicUrl: (path: string) => {
-    return supabase.storage.from('uploads').getPublicUrl(path);
-  },
-
-  deleteImage: async (path: string) => {
-    const { error } = await supabase.storage
-      .from('uploads')
-      .remove([path]);
-    return { error };
-  },
+export const uploadFile = async (file: File, bucket: string, path: string) => {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file);
+  if (error) throw error;
+  return data;
 };
 
-// Real-time subscriptions
-export const realtime = {
-  subscribeToPosts: (callback: (payload: any) => void) => {
-    return supabase
-      .channel('posts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, callback)
-      .subscribe();
-  },
+export const getFileUrl = (bucket: string, path: string) => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+};
 
-  subscribeToComments: (callback: (payload: any) => void) => {
-    return supabase
-      .channel('comments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, callback)
-      .subscribe();
-  },
+// Realtime subscriptions
+export const subscribeToPosts = (callback: (payload: any) => void) => {
+  return supabase
+    .channel('posts')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, callback)
+    .subscribe();
+};
 
-  subscribeToMessages: (roomId: string, callback: (payload: any) => void) => {
-    return supabase
-      .channel(`messages:${roomId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, 
-        callback
-      )
-      .subscribe();
-  },
+export const subscribeToMessages = (roomId: string, callback: (payload: any) => void) => {
+  return supabase
+    .channel(`messages:${roomId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, callback)
+    .subscribe();
+};
 
-  subscribeToPrivateMessages: (userId: string, callback: (payload: any) => void) => {
-    return supabase
-      .channel(`private_messages:${userId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'private_messages', filter: `sender_id=eq.${userId} OR receiver_id=eq.${userId}` }, 
-        callback
-      )
-      .subscribe();
-  },
-
-  subscribeToNotifications: (userId: string, callback: (payload: any) => void) => {
-    return supabase
-      .channel(`notifications:${userId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, 
-        callback
-      )
-      .subscribe();
-  },
-
-  subscribeToFriendRequests: (userId: string, callback: (payload: any) => void) => {
-    return supabase
-      .channel(`friend_requests:${userId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId} OR receiver_id=eq.${userId}` }, 
-        callback
-      )
-      .subscribe();
-  },
+export const subscribeToNotifications = (userId: string, callback: (payload: any) => void) => {
+  return supabase
+    .channel(`notifications:${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` }, callback)
+    .subscribe();
 }; 

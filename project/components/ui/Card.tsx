@@ -1,137 +1,62 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  ViewStyle,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import { theme, getSpacing, getColor, getRadius } from '../../lib/theme';
 
 interface CardProps {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'outlined' | 'gradient';
-  onPress?: () => void;
+  variant?: 'default' | 'post' | 'room' | 'notification';
   style?: ViewStyle;
-  disabled?: boolean;
-  padding?: 'none' | 'small' | 'medium' | 'large';
+  onPress?: () => void;
 }
 
-export function Card({
+export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',
-  onPress,
   style,
-  disabled = false,
-  padding = 'medium',
-}: CardProps) {
-  const getPaddingStyle = () => {
-    switch (padding) {
-      case 'none': return styles.paddingNone;
-      case 'small': return styles.paddingSmall;
-      case 'medium': return styles.paddingMedium;
-      case 'large': return styles.paddingLarge;
-      default: return styles.paddingMedium;
-    }
-  };
-
+  onPress
+}) => {
   const cardStyle = [
-    styles.base,
+    styles.card,
     styles[variant],
-    getPaddingStyle(),
-    disabled && styles.disabled,
-    style,
+    style
   ];
 
-  const CardContainer = onPress ? TouchableOpacity : View;
-
-  if (variant === 'gradient') {
+  if (onPress) {
     return (
-      <CardContainer
-        style={cardStyle}
-        onPress={onPress}
-        disabled={disabled}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={['rgba(255, 107, 157, 0.1)', 'rgba(74, 144, 226, 0.1)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientInner}
-        >
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+        <BlurView intensity={theme.blur.card} style={cardStyle}>
           {children}
-        </LinearGradient>
-      </CardContainer>
+        </BlurView>
+      </TouchableOpacity>
     );
   }
 
   return (
-    <CardContainer
-      style={cardStyle}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.8}
-    >
+    <BlurView intensity={theme.blur.card} style={cardStyle}>
       {children}
-    </CardContainer>
+    </BlurView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  card: {
+    backgroundColor: theme.components.card.bg,
+    borderRadius: theme.components.card.radius,
+    padding: theme.components.card.pad,
+    marginBottom: getSpacing('md'),
+    marginHorizontal: getSpacing('lg'),
   },
-  
-  // Variants
   default: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    // Base card styles
   },
-  elevated: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  post: {
+    // Post-specific styles
   },
-  outlined: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 107, 157, 0.3)',
+  room: {
+    // Room-specific styles
   },
-  gradient: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  
-  // Padding variants
-  paddingNone: {
-    padding: 0,
-  },
-  paddingSmall: {
-    padding: 12,
-  },
-  paddingMedium: {
-    padding: 16,
-  },
-  paddingLarge: {
-    padding: 24,
-  },
-  
-  // States
-  disabled: {
-    opacity: 0.5,
-  },
-  
-  gradientInner: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 16,
+  notification: {
+    // Notification-specific styles
   },
 }); 

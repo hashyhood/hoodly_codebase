@@ -1,287 +1,736 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, FlatList, Alert } from 'react-native';
-import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
-import { ProximityRadar } from '../../components/ui/ProximityRadar';
-import { ActivityCard } from '../../components/ui/ActivityCard';
-import { DynamicIsland } from '../../components/ui/DynamicIsland';
-import { PullToRefresh } from '../../components/ui/PullToRefresh';
-import { SkeletonList } from '../../components/ui/SkeletonList';
-import { PostCard } from '../../components/ui/PostCard';
-import { CommentsModal } from '../../components/ui/CommentsModal';
-import { useTheme } from '../../contexts/ThemeContext';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  Alert,
+  RefreshControl,
+  FlatList,
+  Dimensions,
+  Platform,
+  Animated,
+  Image,
+  Easing,
+  TextInput,
+  Share,
+} from 'react-native';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { getApiUrl } from '../../lib/config';
+import { useSocial } from '../../contexts/SocialContext';
+import { supabase } from '../../lib/supabase';
+import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
+import { postsApi } from '../../lib/api';
+import { SkeletonList } from '../../components/ui/SkeletonList';
+import { Button } from '../../components/ui/Button';
+import { logger } from '../../lib/logger';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { GradientFAB } from '../../components/ui/GradientFAB';
+import { StoryRing } from '../../components/ui/StoryRing';
+import { GradientBackground } from '../../components/ui/GradientBackground';
+import { Spinner } from '../../components/ui/Spinner';
+import { Card } from '../../components/ui/Card';
+
+const { width, height } = Dimensions.get('window');
 
 interface Post {
   id: string;
-  userId: string;
-  user: {
-    id: string;
-    personalName: string;
-    username: string;
-    avatar: string;
-    location: string;
-    distance: string;
-  };
+  user_id: string;
   content: string;
-  image?: string;
-  likes: number;
-  comments: number;
-  timestamp: string;
-  proximity: 'neighborhood' | 'city' | 'state';
-  tags: string[];
-  isAIBot: boolean;
-  userLiked?: boolean;
+  media_urls?: string[];
+  media_type: 'text' | 'image' | 'video' | 'mixed';
+  location?: string;
+  visibility: 'public' | 'friends' | 'private';
+  likes_count: number | null;
+  comments_count: number | null;
+  shares_count: number | null;
+  is_liked?: boolean;
+  created_at: string;
+  user?: any;
+  views_count?: number | null;
+  reach_count?: number | null;
 }
 
-// Dummy notifications for Dynamic Island
-const notifications = [
-  {
-    id: '1',
-    type: 'message' as const,
-    title: 'New Message',
-    message: 'Sarah sent you a message about coffee',
-    time: '2m ago',
-    isRead: false,
-  },
-  {
-    id: '2',
-    type: 'event' as const,
-    title: 'Event Reminder',
-    message: 'Block party starts in 30 minutes',
-    time: '5m ago',
-    isRead: false,
-  },
-  {
-    id: '3',
-    type: 'neighbor' as const,
-    title: 'New Neighbor',
-    message: 'Mike joined your hood',
-    time: '10m ago',
-    isRead: true,
-  },
-];
+interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: 'image' | 'video';
+  caption?: string;
+  views_count: number | null;
+  is_viewed?: boolean;
+  created_at: string;
+  expires_at: string;
+  user?: any;
+}
+
+interface Comment {
+  id: string;
+  user_id: string;
+  post_id: string;
+  content: string;
+  created_at: string;
+  user?: any;
+}
 
 export default function FeedScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const [showAI, setShowAI] = useState(false);
+  const { posts, stories, isLoadingPosts, refreshPosts, refreshStories } = useSocial();
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDynamicIslandExpanded, setIsDynamicIslandExpanded] = useState(false);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+  const [pageFrom, setPageFrom] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [viewedStories, setViewedStories] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'trending' | 'nearby' | 'following'>('trending');
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [newPostMedia, setNewPostMedia] = useState<string[]>([]);
+  const [newPostLocation, setNewPostLocation] = useState('');
+  const [newPostVisibility, setNewPostVisibility] = useState<'public' | 'friends' | 'private'>('public');
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [showStoryCreationModal, setShowStoryCreationModal] = useState(false);
+  const [newStoryMedia, setNewStoryMedia] = useState<string>('');
+  const [newStoryCaption, setNewStoryCaption] = useState('');
+  const [isSubmittingStory, setIsSubmittingStory] = useState(false);
 
-  // Load posts from API
-  const loadPosts = async (refresh = false) => {
-    if (!user) return;
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const tabAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    // Animate in
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Start pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  useEffect(() => {
+    if (posts) {
+      setFilteredPosts(posts);
+    }
+  }, [posts]);
+
+  const handleTabSwitch = (tab: 'trending' | 'nearby' | 'following') => {
+    setActiveTab(tab);
+    
+    // Animate tab switch
+    Animated.spring(tabAnim, {
+      toValue: tab === 'trending' ? 0 : tab === 'nearby' ? 1 : 2,
+      useNativeDriver: false,
+      tension: 100,
+      friction: 8,
+    }).start();
+    
+    // Filter posts based on tab
+    switch (tab) {
+      case 'trending':
+        setFilteredPosts(posts.filter(post => post.likes_count && post.likes_count > 5));
+        break;
+      case 'nearby':
+        setFilteredPosts(posts.filter(post => post.location));
+        break;
+      case 'following':
+        setFilteredPosts(posts.filter(post => post.user?.id !== user?.id));
+        break;
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
     try {
-      setIsLoading(!refresh);
-      setIsRefreshing(refresh);
-
-      const response = await fetch(`${getApiUrl()}/posts/feed/neighborhood?userId=${user.id}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setPosts(data.posts || []);
-      } else {
-        console.error('Failed to load posts:', data.error);
+      setPageFrom(0);
+      const [feedRes] = await Promise.all([
+        postsApi.getFeed(20, 0),
+        refreshStories(),
+      ]);
+      if (feedRes.success && feedRes.data) {
+        setFilteredPosts(feedRes.data as any);
       }
     } catch (error) {
-      console.error('Error loading posts:', error);
+      logger.error('Error refreshing feed:', error);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  // Handle post like
-  const handlePostLike = (postId: string, liked: boolean) => {
-    // Update local state optimistically
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            likes: liked ? post.likes + 1 : post.likes - 1,
-            userLiked: liked 
-          }
-        : post
-    ));
+  const handleLoadMore = async () => {
+    if (isLoadingMore) return;
+    try {
+      setIsLoadingMore(true);
+      const nextFrom = pageFrom + 20;
+      const res = await postsApi.getFeed(20, nextFrom);
+      if (res.success && res.data && res.data.length > 0) {
+        setFilteredPosts(prev => [...prev, ...(res.data as any)]);
+        setPageFrom(nextFrom);
+      }
+    } catch (e) {
+      logger.warn('Load more failed', e);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
-  // Handle post comment
-  const handlePostComment = (postId: string) => {
-    setSelectedPostId(postId);
-    setCommentsModalVisible(true);
-  };
-
-  // Handle comment added
-  const handleCommentAdded = (comment: any) => {
-    // Update post comment count
-    setPosts(prev => prev.map(post => 
-      post.id === selectedPostId 
-        ? { ...post, comments: post.comments + 1 }
-        : post
-    ));
-  };
-
-  // Handle post share
-  const handlePostShare = (postId: string) => {
-    Alert.alert('Share Post', 'Sharing functionality coming soon!');
-  };
-
-  // Handle user press
-  const handleUserPress = (userId: string) => {
-    // Navigate to user profile
-    console.log('Navigate to user profile:', userId);
-  };
-
-  // Load posts on mount
-  useEffect(() => {
-    loadPosts();
-  }, [user]);
-
-  const handleAIPress = () => {
-    setShowAI(!showAI);
-  };
-
-  const handleNotificationPress = () => {
-    // Handle notifications
-    console.log('Notifications pressed');
-  };
-
-  const handleRefresh = async () => {
-    await loadPosts(true);
-  };
-
-  const handleDynamicIslandNotificationPress = (notification: any) => {
-    console.log('Notification pressed:', notification);
-    // Handle notification tap
-  };
-
-  const handleMarkAllRead = () => {
-    console.log('Mark all notifications as read');
-    // Update notifications to read
-  };
-
-  const renderPost = ({ item }: { item: Post }) => (
-    <PostCard
-      post={item}
-      onLike={handlePostLike}
-      onComment={handlePostComment}
-      onShare={handlePostShare}
-      onUserPress={handleUserPress}
-    />
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+  const handleLike = async (postId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
-      {/* Dynamic Island */}
-      <DynamicIsland
-        isExpanded={isDynamicIslandExpanded}
-        onToggle={() => setIsDynamicIslandExpanded(!isDynamicIslandExpanded)}
-        notifications={notifications}
-        onNotificationPress={handleDynamicIslandNotificationPress}
-        onMarkAllRead={handleMarkAllRead}
-      />
+      // Optimistic UI
+      setFilteredPosts(prev => prev.map(post => post.id === postId ? {
+        ...post,
+        is_liked: !post.is_liked,
+        likes_count: Math.max(0, (post.likes_count || 0) + (post.is_liked ? -1 : 1))
+      } : post));
+
+      const result = await postsApi.toggleLike(postId, user.id);
+      if (!result) {
+        // Rollback on error
+        setFilteredPosts(prev => prev.map(post => post.id === postId ? {
+          ...post,
+          is_liked: !post.is_liked,
+          likes_count: Math.max(0, (post.likes_count || 0) + (post.is_liked ? -1 : 1))
+        } : post));
+      }
+    } catch (error) {
+      logger.error('Error toggling like:', error);
+      Alert.alert('Error', 'Failed to update like');
+    }
+  };
+
+  const handleComment = async (postId: string) => {
+    setSelectedPost(posts.find(p => p.id === postId) || null);
+    setShowCommentModal(true);
+    await loadComments(postId);
+  };
+
+  const loadComments = async (postId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: false });
       
-      <HoodlyLayout
-        neighborhoodName="Downtown West"
-        activeNeighbors={47}
-        communityHealth={94}
-        socialScore={8.4}
-        eventsToday={23}
-        onAIPress={handleAIPress}
-        onNotificationPress={handleNotificationPress}
-      >
-        <PullToRefresh
-          onRefresh={handleRefresh}
-          refreshing={isRefreshing}
-        >
-          {isLoading ? (
-            <SkeletonList count={3} />
-          ) : (
-            <FlatList
-              data={posts}
-              renderItem={renderPost}
-              keyExtractor={(item) => item.id}
-              style={styles.content}
-              contentContainerStyle={styles.contentContainer}
-              showsVerticalScrollIndicator={false}
-              ListHeaderComponent={
-                <>
-                  {/* Proximity Radar */}
-                  <ProximityRadar neighborsCount={3} maxDistance={100} />
+      if (error) throw error;
+      setComments(data || []);
+    } catch (error) {
+      logger.error('Error loading comments:', error);
+    }
+  };
 
-                  {/* AI Insights Panel */}
-                  {showAI && (
-                    <View style={[styles.aiPanel, { 
-                      backgroundColor: `${theme.colors.neural.tertiary}20`,
-                      borderColor: `${theme.colors.neural.tertiary}40`,
-                    }]}>
-                      <View style={styles.aiHeader}>
-                        <Text style={styles.aiIcon}>🧠</Text>
-                        <Text style={[styles.aiTitle, { color: theme.colors.neural.tertiary }]}>
-                          AI Neighborhood Insights
-                        </Text>
-                      </View>
-                      <View style={[styles.aiSuggestion, { backgroundColor: theme.colors.glass.tertiary }]}>
-                        <Text style={[styles.suggestionText, { color: theme.colors.text.secondary }]}>
-                          🎯 Based on your interests, you might enjoy the "Tech Entrepreneurs Meetup" at Café Luna tonight at 7 PM. 3 neighbors you follow are attending.
-                        </Text>
-                      </View>
-                      <View style={[styles.aiSuggestion, { backgroundColor: theme.colors.glass.tertiary }]}>
-                        <Text style={[styles.suggestionText, { color: theme.colors.text.secondary }]}>
-                          🏃‍♂️ Your usual running partner Mike is active nearby. Perfect weather for your morning jog route!
-                        </Text>
-                      </View>
-                      <View style={[styles.aiSuggestion, { backgroundColor: theme.colors.glass.tertiary }]}>
-                        <Text style={[styles.suggestionText, { color: theme.colors.text.secondary }]}>
-                          🛍️ The local farmers market has fresh produce deals. Sarah from your building just posted about amazing strawberries!
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={[styles.emptyText, { color: theme.colors.text.tertiary }]}>
-                    No posts yet. Be the first to share something with your neighborhood!
-                  </Text>
-                </View>
-              }
-            />
-          )}
-        </PullToRefresh>
-      </HoodlyLayout>
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedPost) return;
+    
+    setIsSubmittingComment(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      {/* Comments Modal */}
-      <CommentsModal
-        visible={commentsModalVisible}
-        postId={selectedPostId || ''}
-        onClose={() => {
-          setCommentsModalVisible(false);
-          setSelectedPostId(null);
-        }}
-        onCommentAdded={handleCommentAdded}
-      />
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: selectedPost.id,
+          user_id: user.id,
+          content: newComment,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setComments(prev => [data, ...prev]);
+      setNewComment('');
+      
+      // Update post comment count
+      setFilteredPosts(prev => prev.map(post => 
+        post.id === selectedPost.id 
+          ? { ...post, comments_count: (post.comments_count || 0) + 1 }
+          : post
+      ));
+    } catch (error) {
+      logger.error('Error adding comment:', error);
+      Alert.alert('Error', 'Failed to add comment');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
-      {/* Floating Action Button */}
+  const handleShare = async (postId: string) => {
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+      
+      await Share.share({
+        message: `${post.content}\n\nShared from Hoodly`,
+        title: 'Check out this post on Hoodly',
+      });
+    } catch (error) {
+      logger.warn('Error sharing post:', error);
+    }
+  };
+
+  const handleCreatePost = () => {
+    setShowCreatePostModal(true);
+  };
+
+  const handleCreateStory = () => {
+    setShowStoryCreationModal(true);
+  };
+
+  const handleSubmitPost = async () => {
+    if (!newPostContent.trim()) return;
+    
+    setIsSubmittingPost(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          content: newPostContent,
+          media_urls: newPostMedia,
+          media_type: 'text',
+          location: newPostLocation,
+          visibility: newPostVisibility,
+          likes_count: 0,
+          comments_count: 0,
+          shares_count: 0,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Reset form
+      setNewPostContent('');
+      setNewPostMedia([]);
+      setNewPostLocation('');
+      setNewPostVisibility('public');
+      setShowCreatePostModal(false);
+      
+      // Refresh posts
+      await refreshPosts();
+    } catch (error) {
+      logger.error('Error creating post:', error);
+      Alert.alert('Error', 'Failed to create post');
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  };
+
+  const handleAddMedia = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets) {
+        const newMedia = result.assets.map(asset => asset.uri);
+        setNewPostMedia(prev => [...prev, ...newMedia]);
+      }
+    } catch (error) {
+      logger.warn('Error picking media:', error);
+      Alert.alert('Error', 'Failed to pick media');
+    }
+  };
+
+  const handleRemoveMedia = (index: number) => {
+    setNewPostMedia(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddLocation = () => {
+    Alert.alert('Coming Soon', 'Location picker will be available soon!');
+  };
+
+  const handleVisibilityChange = () => {
+    const options = ['public', 'friends', 'private'];
+    const currentIndex = options.indexOf(newPostVisibility);
+    const nextIndex = (currentIndex + 1) % options.length;
+    setNewPostVisibility(options[nextIndex] as 'public' | 'friends' | 'private');
+  };
+
+  const handleViewStory = async (story: Story) => {
+    setSelectedStory(story);
+    setShowStoryModal(true);
+    
+    // Mark as viewed
+    setViewedStories(prev => new Set([...prev, story.id]));
+    
+    try {
+      // Mark story as viewed in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('story_views')
+          .insert({
+            story_id: story.id,
+            user_id: user.id,
+          });
+      }
+    } catch (error) {
+      logger.error('Error viewing story:', error);
+    }
+  };
+
+  const handleStoryCreation = async (mediaUrl: string, caption?: string) => {
+    setIsSubmittingStory(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
+
+      const { data, error } = await supabase
+        .from('stories')
+        .insert({
+          user_id: user.id,
+          media_url: mediaUrl,
+          media_type: 'image',
+          caption,
+          views_count: 0,
+          expires_at: expiresAt.toISOString(),
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setNewStoryMedia('');
+      setNewStoryCaption('');
+      setShowStoryCreationModal(false);
+      
+      // Refresh stories
+      await refreshStories();
+    } catch (error) {
+      logger.error('Error creating story:', error);
+      Alert.alert('Error', 'Failed to create story');
+    } finally {
+      setIsSubmittingStory(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    if (!dateString) return 'just now';
+    
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d`;
+    return `${Math.floor(diffInSeconds / 2592000)}mo`;
+  };
+
+  const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  const renderStoryItem = ({ item, index }: { item: Story; index: number }) => {
+    const isViewed = viewedStories.has(item.id);
+    
+    return (
       <TouchableOpacity 
-        style={[styles.fab, { 
-          backgroundColor: theme.colors.gradients.neural[0],
-          bottom: 120, // Adjusted for tab bar
-        }]} 
+        style={[styles.storyItem, isViewed && styles.storyItemViewed]}
+        onPress={() => handleViewStory(item)}
         activeOpacity={0.8}
       >
-        <Text style={[styles.fabIcon, { color: theme.colors.text.primary }]}>+</Text>
+        <View style={styles.storyImageContainer}>
+          <LinearGradient
+            colors={theme.gradients.primary}
+            style={styles.storyGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Image source={{ uri: item.media_url }} style={styles.storyImage} />
+            {!isViewed && <View style={styles.storyUnviewedIndicator} />}
+          </LinearGradient>
+        </View>
+        <Text style={[styles.storyUsername, { color: getColor('textPrimary') }]} numberOfLines={1}>
+          {item.user?.full_name || 'Anonymous'}
+        </Text>
       </TouchableOpacity>
-    </View>
+    );
+  };
+
+  const renderAddStoryItem = () => (
+    <TouchableOpacity
+      style={styles.addStoryItem}
+      onPress={handleCreateStory}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={theme.gradients.primary}
+        style={styles.addStoryGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.addStoryIcon}>
+          <Ionicons name="add-circle-outline" size={20} color={getColor('textPrimary')} />
+        </View>
+      </LinearGradient>
+      <Text style={[styles.addStoryText, { color: getColor('textPrimary') }]}>Add Story</Text>
+    </TouchableOpacity>
+  );
+
+  const renderPostItem = ({ item, index }: { item: Post; index: number }) => {
+    const isLiked = item.is_liked || false;
+
+    return (
+      <GlassCard style={styles.postCard}>
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [
+              { translateY: slideAnim },
+              { scale: scaleAnim },
+            ],
+          }}
+        >
+          <View style={styles.postHeader}>
+            <View style={styles.postUserInfo}>
+              <Image
+                source={{ uri: item.user?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=40&h=40&fit=crop&crop=face' }}
+                style={styles.postAvatar}
+              />
+              <View style={styles.postUserDetails}>
+                <Text style={[styles.postUsername, { color: getColor('textPrimary') }]}>
+                  {item.user?.full_name || 'Anonymous'}
+                </Text>
+                <Text style={[styles.postTime, { color: getColor('textSecondary') }]}>
+                  {formatTimeAgo(item.created_at)}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.postMoreButton}>
+              <Ionicons name="ellipsis-horizontal" size={20} color={getColor('textSecondary')} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.postContent, { color: getColor('textPrimary') }]}>
+            {item.content}
+          </Text>
+
+          {item.media_urls && item.media_urls.length > 0 && (
+            <View style={styles.postMedia}>
+              <Image source={{ uri: item.media_urls[0] }} style={styles.postImage} />
+            </View>
+          )}
+
+          {item.location && (
+            <View style={styles.postLocation}>
+              <Ionicons name="location" size={16} color={getColor('textSecondary')} />
+              <Text style={[styles.postLocationText, { color: getColor('textSecondary') }]}>
+                {item.location}
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.postStats}>
+            <View style={styles.postStat}>
+              <Ionicons name="eye" size={16} color={getColor('textSecondary')} />
+              <Text style={[styles.postStatText, { color: getColor('textSecondary') }]}>
+                {formatNumber(item.views_count || 0)}
+              </Text>
+            </View>
+            <View style={styles.postStat}>
+              <Ionicons name="people" size={16} color={getColor('textSecondary')} />
+              <Text style={[styles.postStatText, { color: getColor('textSecondary') }]}>
+                {formatNumber(item.reach_count || 0)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.postActions}>
+            <TouchableOpacity
+              style={[styles.postAction, isLiked && styles.postActionActive]}
+              onPress={() => handleLike(item.id)}
+            >
+              <Ionicons name="heart" size={20} color={isLiked ? getColor('error') : getColor('textSecondary')} />
+              <Text style={[styles.postActionText, isLiked && styles.postActionTextActive]}>
+                {formatNumber(item.likes_count || 0)}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.postAction}
+              onPress={() => handleComment(item.id)}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color={getColor('textSecondary')} />
+              <Text style={[styles.postActionText, { color: getColor('textSecondary') }]}>
+                {formatNumber(item.comments_count || 0)}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.postAction}
+              onPress={() => handleShare(item.id)}
+            >
+              <Ionicons name="share-outline" size={20} color={getColor('textSecondary')} />
+              <Text style={[styles.postActionText, { color: getColor('textSecondary') }]}>
+                {formatNumber(item.shares_count || 0)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </GlassCard>
+    );
+  };
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
+        <Text style={[styles.loadingText, { color: getColor('textPrimary') }]}>
+          Please log in to view the feed
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <HoodlyLayout
+      neighborhoodName="Your Feed"
+      activeNeighbors={posts.length}
+      communityHealth={95}
+      socialScore={8.4}
+      eventsToday={stories.length}
+      showSearch={false}
+    >
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <BlurView intensity={20} style={styles.tabBlurContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'trending' && styles.tabActive]}
+            onPress={() => handleTabSwitch('trending')}
+          >
+            <Ionicons name="star" size={18} color={activeTab === 'trending' ? getColor('textPrimary') : getColor('textSecondary')} />
+            <Text style={[styles.tabText, activeTab === 'trending' && styles.tabTextActive]}>Trending</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'nearby' && styles.tabActive]}
+            onPress={() => handleTabSwitch('nearby')}
+          >
+            <Ionicons name="map" size={18} color={activeTab === 'nearby' ? getColor('textPrimary') : getColor('textSecondary')} />
+            <Text style={[styles.tabText, activeTab === 'nearby' && styles.tabTextActive]}>Nearby</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'following' && styles.tabActive]}
+            onPress={() => handleTabSwitch('following')}
+          >
+            <Ionicons name="people" size={18} color={activeTab === 'following' ? getColor('textPrimary') : getColor('textSecondary')} />
+            <Text style={[styles.tabText, activeTab === 'following' && styles.tabTextActive]}>Following</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </View>
+
+      {/* Stories */}
+      <View style={styles.storiesContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll}>
+          {renderAddStoryItem()}
+          {stories.map((story, index) => (
+            <View key={story.id} style={styles.storyWrapper}>
+              {renderStoryItem({ item: story, index })}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Posts */}
+      {isRefreshing && filteredPosts.length === 0 ? (
+        <View style={{ paddingHorizontal: 20 }}>
+          <SkeletonList count={6} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredPosts}
+          renderItem={renderPostItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          onEndReachedThreshold={0.25}
+          onEndReached={handleLoadMore}
+          ListEmptyComponent={
+            <EmptyState
+              icon="add-circle-outline"
+              title="No posts yet 🫥"
+              subtitle="Be the first to share something amazing!"
+              cta={{
+                text: "Create Your First Post",
+                onPress: handleCreatePost
+              }}
+            />
+          }
+          contentContainerStyle={styles.postsList}
+        />
+      )}
+
+      {/* Floating Action Button */}
+      <GradientFAB
+        onPress={handleCreatePost}
+        icon="add-circle"
+      />
+    </HoodlyLayout>
   );
 }
 
@@ -289,71 +738,259 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 120, // Space for the tab bar
-  },
-  aiPanel: {
-    borderRadius: 24,
-    padding: 24,
-    marginHorizontal: 16,
-    marginTop: 24,
-    borderWidth: 1,
-  },
-  aiHeader: {
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
   },
-  aiIcon: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
-  aiTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  aiSuggestion: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#7c3aed',
-  },
-  suggestionText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  emptyContainer: {
-    flex: 1,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 64,
-    paddingHorizontal: 32,
   },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  fab: {
-    position: 'absolute',
-    right: 24,
+  tabBlurContainer: {
+    flexDirection: 'row',
+    borderRadius: 25,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(99, 102, 241, 0.8)',
+  },
+  tabText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  tabTextActive: {
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 1)',
+  },
+  storiesContainer: {
+    paddingVertical: 20,
+    marginBottom: 10,
+  },
+  storiesScroll: {
+    paddingHorizontal: 20,
+  },
+  storyWrapper: {
+    marginRight: 12,
+  },
+  storyItem: {
+    alignItems: 'center',
+    width: 70,
+    marginRight: 12,
+  },
+  storyItemViewed: {
+    opacity: 0.6,
+  },
+  storyImageContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    marginBottom: 8,
+    overflow: 'hidden',
   },
-  fabIcon: {
-    fontSize: 24,
+  storyGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
+  },
+  storyImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  storyUnviewedIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF3B30',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  storyUsername: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  addStoryItem: {
+    alignItems: 'center',
+    width: 70,
+  },
+  addStoryGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addStoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addStoryText: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  postsList: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
+    paddingTop: 10,
+  },
+  postCard: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  postUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  postUserDetails: {
+    flex: 1,
+  },
+  postUsername: {
+    fontSize: 16,
     fontWeight: '600',
+  },
+  postTime: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  postMoreButton: {
+    padding: 4,
+  },
+  postContent: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  postMedia: {
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+  },
+  postLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  postLocationText: {
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  postStats: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  postStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  postStatText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  postActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  postAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  postActionActive: {
+    backgroundColor: 'rgba(255, 59, 48, 0.2)',
+  },
+  postActionText: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  postActionTextActive: {
+    fontWeight: '700',
+    color: 'rgba(255, 59, 48, 1)',
+  },
+  loadingText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 100,
+    fontWeight: '500',
   },
 });

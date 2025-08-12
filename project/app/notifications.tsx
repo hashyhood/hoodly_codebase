@@ -9,21 +9,32 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import NotificationCard from '../components/ui/NotificationCard';
-import SocketEvents from '../components/ui/SocketEvents';
+// SocketEvents removed - using Supabase Realtime instead
 import { Ionicons } from '@expo/vector-icons';
 import { notificationsApi } from '../lib/api';
+import type { Database } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
-interface Notification {
+// Use the database schema type for notifications
+type DBNotification = Database['public']['Tables']['notifications']['Row'];
+
+interface NotificationWithUser {
   id: string;
-  type: string; // allow any string type
-  title: string;
-  message: string;
+  user_id: string;
+  type: string;
+  data?: {
+    sender_id?: string;
+    post_id?: string;
+    room_id?: string;
+    message?: string;
+  };
   is_read: boolean;
   created_at: string;
+  updated_at?: string;
   fromUser?: {
     id: string;
     personalName: string;
@@ -34,9 +45,8 @@ interface Notification {
 }
 
 export default function NotificationsScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -52,11 +62,12 @@ export default function NotificationsScreen() {
       setRefreshing(refresh);
       const { data, error } = await notificationsApi.getNotifications(user.id);
       if (error) throw new Error(error);
-      setNotifications(data || []);
+      // Cast the data to the correct type
+      setNotifications((data as NotificationWithUser[]) || []);
       setHasMore((data || []).length === pageSize);
       setPage(refresh ? 1 : page + 1);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      logger.error('Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
     } finally {
       setLoading(false);
@@ -72,7 +83,7 @@ export default function NotificationsScreen() {
       if (error) throw new Error(error);
       setUnreadCount((data || []).filter(n => !n.is_read).length);
     } catch (error) {
-      console.error('Error loading unread count:', error);
+      logger.warn('Error loading unread count:', error);
     }
   }, [user]);
 
@@ -85,7 +96,7 @@ export default function NotificationsScreen() {
       setNotifications(prev => prev.map(notif => notif.id === notificationId ? { ...notif, is_read: true } : notif));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      logger.warn('Error marking notification as read:', error);
       Alert.alert('Error', 'Failed to mark notification as read');
     }
   }, [user]);
@@ -100,20 +111,28 @@ export default function NotificationsScreen() {
       setUnreadCount(0);
       Alert.alert('Success', 'All notifications marked as read');
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      logger.error('Error marking all notifications as read:', error);
       Alert.alert('Error', 'Failed to mark all notifications as read');
     }
   }, [user]);
 
   // Handle notification received
-  const handleNotificationReceived = useCallback((data: any) => {
+  const handleNotificationReceived = useCallback((data: { notification: NotificationWithUser }) => {
     const { notification } = data;
     
-    // Add new notification to the top of the list
-    setNotifications(prev => [notification, ...prev]);
+    // Check if notification already exists to prevent duplicates
+    setNotifications(prev => {
+      const exists = prev.some(n => n.id === notification.id);
+      if (exists) {
+        return prev;
+      }
+      return [notification, ...prev];
+    });
     
-    // Update unread count
-    setUnreadCount(prev => prev + 1);
+    // Update unread count only if notification is not read
+    if (!notification.is_read) {
+      setUnreadCount(prev => prev + 1);
+    }
   }, []);
 
   // Handle unread count change
@@ -141,10 +160,10 @@ export default function NotificationsScreen() {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user.id}`
+          filter: `receiver_id=eq.${user.id}`
         },
         (payload) => {
-          const newNotification = payload.new as Notification;
+          const newNotification = payload.new as NotificationWithUser;
           handleNotificationReceived({ notification: newNotification });
         }
       )
@@ -154,7 +173,7 @@ export default function NotificationsScreen() {
           event: 'UPDATE',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user.id}`
+          filter: `receiver_id=eq.${user.id}`
         },
         () => {
           // Reload unread count when notifications are updated
@@ -183,34 +202,17 @@ export default function NotificationsScreen() {
   }, [hasMore, loading, loadNotifications]);
 
   // Handle notification press
-  const handleNotificationPress = useCallback((notification: Notification) => {
+  const handleNotificationPress = useCallback((notification: NotificationWithUser) => {
     // Mark as read if not already read
     if (!notification.is_read) {
       markNotificationRead(notification.id);
     }
 
     // Handle navigation based on notification type
-    switch (notification.type) {
-      case 'like':
-        // Navigate to post
-        console.log('Navigate to post:', notification.metadata?.postId);
-        break;
-      case 'dm':
-        // Navigate to chat
-        console.log('Navigate to chat with:', notification.fromUser?.id);
-        break;
-      case 'friend_request':
-        // Navigate to friend requests
-        console.log('Navigate to friend requests');
-        break;
-      case 'comment':
-        // Navigate to post
-        console.log('Navigate to post:', notification.metadata?.postId);
-        break;
-    }
+    // Future: navigate based on type (post/profile/chat)
   }, [markNotificationRead]);
 
-  const renderNotification = ({ item }: { item: Notification }) => (
+  const renderNotification = ({ item }: { item: NotificationWithUser }) => (
     <NotificationCard
       notification={item}
       onPress={() => handleNotificationPress(item)}
@@ -223,12 +225,12 @@ export default function NotificationsScreen() {
       <Ionicons 
         name="notifications-outline" 
         size={64} 
-        color={theme.colors.text.tertiary} 
+        color={getColor('textTertiary')} 
       />
-      <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.emptyTitle, { color: getColor('textPrimary') }]}> 
         No notifications yet
       </Text>
-      <Text style={[styles.emptyMessage, { color: theme.colors.text.secondary }]}>
+      <Text style={[styles.emptyMessage, { color: getColor('textSecondary') }]}>
         When you receive likes, comments, or messages, they'll appear here
       </Text>
     </View>
@@ -237,21 +239,21 @@ export default function NotificationsScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.headerContent}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+        <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>
           Notifications
         </Text>
         {unreadCount > 0 && (
-          <View style={[styles.badge, { backgroundColor: theme.colors.status.error }]}>
+          <View style={[styles.badge, { backgroundColor: getColor('error') }]}>
             <Text style={styles.badgeText}>{unreadCount}</Text>
           </View>
         )}
       </View>
       {unreadCount > 0 && (
         <TouchableOpacity
-          style={[styles.markAllButton, { backgroundColor: theme.colors.glass.primary }]}
+          style={[styles.markAllButton, { backgroundColor: getColor('surface') }]}
           onPress={markAllAsRead}
         >
-          <Text style={[styles.markAllText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.markAllText, { color: getColor('textSecondary') }]}>
             Mark all read
           </Text>
         </TouchableOpacity>
@@ -260,7 +262,7 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <FlatList
         data={notifications}
         renderItem={renderNotification}
@@ -271,7 +273,7 @@ export default function NotificationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.colors.neural.primary}
+            tintColor={getColor('success')}
           />
         }
         onEndReached={onLoadMore}
@@ -281,10 +283,7 @@ export default function NotificationsScreen() {
       />
       
       {/* Socket events for real-time notifications */}
-      <SocketEvents
-        onNotificationReceived={handleNotificationReceived}
-        onUnreadCountChange={handleUnreadCountChange}
-      />
+      {/* SocketEvents removed - using Supabase Realtime instead */}
     </SafeAreaView>
   );
 }

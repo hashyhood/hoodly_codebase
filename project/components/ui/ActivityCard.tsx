@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { theme } from '../../lib/theme';
+import { getColor } from '../../lib/theme';
 
 interface ActivityCardProps {
   user: {
@@ -43,67 +43,67 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   };
 
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.container, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]} activeOpacity={0.9}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: getColor('success') }]}>
             <Text style={styles.avatarText}>{user.avatar}</Text>
-            {user.isLive && <View style={styles.proximityRing} />}
+            {user.isLive && <View style={[styles.proximityRing, { borderColor: getColor('success') }]} />}
           </View>
         </View>
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user.name}</Text>
+          <Text style={[styles.userName, { color: getColor('textPrimary') }]}>{user.name}</Text>
           <View style={styles.metaInfo}>
-            <View style={styles.distanceBadge}>
-              <Text style={styles.distanceText}>{user.distance}</Text>
+            <View style={[styles.distanceBadge, { backgroundColor: `${getColor('success')}30` }]}>
+              <Text style={[styles.distanceText, { color: getColor('success') }]}>{user.distance}</Text>
             </View>
             {user.isLive && (
-              <View style={styles.liveIndicator}>
-                <Text style={styles.liveText}>LIVE</Text>
+              <View style={[styles.liveIndicator, { backgroundColor: getColor('success') }]}>
+                <Text style={[styles.liveText, { color: getColor('textPrimary') }]}>LIVE</Text>
               </View>
             )}
-            <Text style={styles.locationText}>• {user.location}</Text>
+            <Text style={[styles.locationText, { color: getColor('textTertiary') }]}>• {user.location}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.contentText}>{content}</Text>
+        <Text style={[styles.contentText, { color: getColor('textSecondary') }]}>{content}</Text>
         
         {media && (
           <View style={styles.mediaContainer}>
-            <View style={styles.mediaPlaceholder} />
+            <View style={[styles.mediaPlaceholder, { backgroundColor: getColor('success') }]} />
           </View>
         )}
 
         <View style={styles.actions}>
           <View style={styles.leftActions}>
             <TouchableOpacity 
-              style={[styles.actionButton, liked && styles.likedButton]} 
+              style={[styles.actionButton, liked && { backgroundColor: `${getColor('success')}20` }]} 
               onPress={handleLike}
             >
-              <Text style={[styles.actionIcon, liked && styles.likedIcon]}>
+              <Text style={[styles.actionIcon, liked && { color: getColor('success') }]}>
                 {liked ? '❤️' : '🤍'}
               </Text>
-              <Text style={[styles.actionText, liked && styles.likedText]}>
+              <Text style={[styles.actionText, liked && { color: getColor('success') }]}>
                 {likeCount}
               </Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.actionButton} onPress={onComment}>
               <Text style={styles.actionIcon}>💬</Text>
-              <Text style={styles.actionText}>{comments}</Text>
+              <Text style={[styles.actionText, { color: getColor('textTertiary') }]}>{comments}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.actionButton} onPress={onShare}>
               <Text style={styles.actionIcon}>📤</Text>
-              <Text style={styles.actionText}>Share</Text>
+              <Text style={[styles.actionText, { color: getColor('textTertiary') }]}>Share</Text>
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={styles.joinButton} onPress={onJoin}>
+          <TouchableOpacity style={[styles.joinButton, { backgroundColor: `${getColor('success')}20` }]} onPress={onJoin}>
             <Text style={styles.joinIcon}>⭐</Text>
-            <Text style={styles.joinText}>Join</Text>
+            <Text style={[styles.joinText, { color: getColor('success') }]}>Join</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -113,18 +113,16 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.glass.primary,
-    borderRadius: theme.radius.xl,
-    marginBottom: theme.spacing.md,
+    borderRadius: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: theme.colors.glass.border,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    padding: 16,
+    gap: 8,
   },
   avatarContainer: {
     position: 'relative',
@@ -133,7 +131,6 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: theme.colors.gradients.neural[0],
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -148,7 +145,6 @@ const styles = StyleSheet.create({
     right: -3,
     bottom: -3,
     borderWidth: 2,
-    borderColor: theme.colors.neural.secondary,
     borderRadius: 25.5,
   },
   userInfo: {
@@ -157,58 +153,38 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: theme.colors.text.primary,
     marginBottom: 2,
   },
   metaInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: 8,
   },
   distanceBadge: {
-    backgroundColor: `${theme.colors.neural.secondary}30`,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
-  distanceText: {
-    color: theme.colors.neural.secondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  distanceText: { fontSize: 11, fontWeight: '600' },
   liveIndicator: {
-    backgroundColor: theme.colors.neural.primary,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
-  liveText: {
-    color: theme.colors.text.primary,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  locationText: {
-    color: theme.colors.text.tertiary,
-    fontSize: 11,
-  },
+  liveText: { fontSize: 9, fontWeight: '700' },
+  locationText: { fontSize: 11 },
   content: {
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  contentText: {
-    color: theme.colors.text.secondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: theme.spacing.md,
-  },
+  contentText: { fontSize: 14, lineHeight: 20, marginBottom: 16 },
   mediaContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
   mediaPlaceholder: {
     width: '100%',
     height: 180,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.gradients.neural[0],
+    borderRadius: 12,
   },
   actions: {
     flexDirection: 'row',
@@ -217,46 +193,29 @@ const styles = StyleSheet.create({
   },
   leftActions: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: 16,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    padding: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-  },
-  likedButton: {
-    backgroundColor: `${theme.colors.neural.primary}20`,
+    padding: 8,
+    borderRadius: 12,
   },
   actionIcon: {
     fontSize: 16,
   },
-  likedIcon: {
-    color: theme.colors.neural.primary,
-  },
-  actionText: {
-    color: theme.colors.text.tertiary,
-    fontSize: 12,
-  },
-  likedText: {
-    color: theme.colors.neural.primary,
-  },
+  actionText: { fontSize: 12 },
   joinButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: `${theme.colors.neural.secondary}20`,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   joinIcon: {
     fontSize: 16,
   },
-  joinText: {
-    color: theme.colors.neural.secondary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  joinText: { fontSize: 12, fontWeight: '600' },
 }); 

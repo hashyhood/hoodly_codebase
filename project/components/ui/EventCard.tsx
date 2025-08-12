@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, MapPin, Users, Clock } from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 
 interface Event {
   id: string;
@@ -37,7 +37,6 @@ export const EventCard: React.FC<EventCardProps> = ({
   onRSVP,
   onUserPress,
 }) => {
-  const { theme } = useTheme();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -78,8 +77,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   return (
     <TouchableOpacity 
       style={[styles.container, { 
-        backgroundColor: theme.colors.glass.primary,
-        borderColor: theme.colors.glass.border,
+        backgroundColor: getColor('surface'),
+        borderColor: getColor('divider'),
       }]}
       onPress={() => onPress?.(event.id)}
     >
@@ -93,8 +92,8 @@ export const EventCard: React.FC<EventCardProps> = ({
           />
           <View style={styles.imageContent}>
             <Text style={[styles.categoryBadge, { 
-              backgroundColor: theme.colors.glass.overlay,
-              color: theme.colors.text.primary 
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: getColor('textPrimary') 
             }]}>
               {getCategoryEmoji(event.category)} {event.category}
             </Text>
@@ -105,39 +104,39 @@ export const EventCard: React.FC<EventCardProps> = ({
       {/* Event Content */}
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.title, { color: getColor('textPrimary') }]}>
             {event.title}
           </Text>
-          {event.isCreator && (
-            <View style={[styles.creatorBadge, { backgroundColor: theme.colors.neural.primary }]}>
-              <Text style={[styles.creatorText, { color: theme.colors.text.inverse }]}>Creator</Text>
-            </View>
-          )}
+                      {event.isCreator && (
+              <View style={[styles.creatorBadge, { backgroundColor: getColor('success') }]}>
+                <Text style={[styles.creatorText, { color: getColor('textPrimary') }]}>Creator</Text>
+              </View>
+            )}
         </View>
 
-        <Text style={[styles.description, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.description, { color: getColor('textSecondary') }]}>
           {event.description}
         </Text>
 
         {/* Event Details */}
         <View style={styles.details}>
           <View style={styles.detailItem}>
-            <Calendar size={16} color={theme.colors.text.tertiary} />
-            <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+            <Ionicons name="calendar-outline" size={16} color={getColor('textTertiary')} />
+            <Text style={[styles.detailText, { color: getColor('textSecondary') }]}>
               {formatDate(event.date)} • {event.time}
             </Text>
           </View>
           
           <View style={styles.detailItem}>
-            <MapPin size={16} color={theme.colors.text.tertiary} />
-            <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+            <Ionicons name="pin-outline" size={16} color={getColor('textTertiary')} />
+            <Text style={[styles.detailText, { color: getColor('textSecondary') }]}>
               {event.location}
             </Text>
           </View>
           
           <View style={styles.detailItem}>
-            <Users size={16} color={theme.colors.text.tertiary} />
-            <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+            <Ionicons name="people-outline" size={16} color={getColor('textTertiary')} />
+            <Text style={[styles.detailText, { color: getColor('textSecondary') }]}>
               {event.rsvpCount} attending
               {event.maxAttendees && ` • ${event.maxAttendees} max`}
             </Text>
@@ -149,15 +148,15 @@ export const EventCard: React.FC<EventCardProps> = ({
           <View style={styles.tagsContainer}>
             {event.tags.slice(0, 3).map((tag, index) => (
               <View key={index} style={[styles.tag, { 
-                backgroundColor: theme.colors.glass.secondary 
+                backgroundColor: getColor('surface') 
               }]}>
-                <Text style={[styles.tagText, { color: theme.colors.text.secondary }]}>
+                <Text style={[styles.tagText, { color: getColor('textSecondary') }]}>
                   #{tag}
                 </Text>
               </View>
             ))}
             {event.tags.length > 3 && (
-              <Text style={[styles.moreTags, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.moreTags, { color: getColor('textTertiary') }]}>
                 +{event.tags.length - 3} more
               </Text>
             )}
@@ -166,20 +165,20 @@ export const EventCard: React.FC<EventCardProps> = ({
       </View>
 
       {/* RSVP Actions */}
-      <View style={[styles.actions, { borderTopColor: theme.colors.glass.border }]}>
+      <View style={[styles.actions, { borderTopColor: getColor('divider') }]}>
         <View style={styles.rsvpButtons}>
           <TouchableOpacity 
             style={[styles.rsvpButton, styles.goingButton, {
               backgroundColor: getRSVPStatus() === 'going' 
-                ? theme.colors.status.success 
-                : theme.colors.glass.secondary
+                ? getColor('success') 
+                : getColor('surface')
             }]}
             onPress={() => onRSVP?.(event.id, 'going')}
           >
             <Text style={[styles.rsvpButtonText, { 
               color: getRSVPStatus() === 'going' 
-                ? theme.colors.text.inverse 
-                : theme.colors.text.primary 
+                ? getColor('textPrimary') 
+                : getColor('textPrimary') 
             }]}>
               Going
             </Text>
@@ -188,15 +187,15 @@ export const EventCard: React.FC<EventCardProps> = ({
           <TouchableOpacity 
             style={[styles.rsvpButton, styles.maybeButton, {
               backgroundColor: getRSVPStatus() === 'maybe' 
-                ? theme.colors.status.warning 
-                : theme.colors.glass.secondary
+                ? getColor('warning') 
+                : getColor('surface')
             }]}
             onPress={() => onRSVP?.(event.id, 'maybe')}
           >
             <Text style={[styles.rsvpButtonText, { 
               color: getRSVPStatus() === 'maybe' 
-                ? theme.colors.text.inverse 
-                : theme.colors.text.primary 
+                ? getColor('textPrimary') 
+                : getColor('textPrimary') 
             }]}>
               Maybe
             </Text>
@@ -205,15 +204,15 @@ export const EventCard: React.FC<EventCardProps> = ({
           <TouchableOpacity 
             style={[styles.rsvpButton, styles.notGoingButton, {
               backgroundColor: getRSVPStatus() === 'not_going' 
-                ? theme.colors.status.error 
-                : theme.colors.glass.secondary
+                ? getColor('error') 
+                : getColor('surface')
             }]}
             onPress={() => onRSVP?.(event.id, 'not_going')}
           >
             <Text style={[styles.rsvpButtonText, { 
               color: getRSVPStatus() === 'not_going' 
-                ? theme.colors.text.inverse 
-                : theme.colors.text.primary 
+                ? getColor('textPrimary') 
+                : getColor('textPrimary') 
             }]}>
               Not Going
             </Text>
@@ -226,9 +225,9 @@ export const EventCard: React.FC<EventCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
+    marginHorizontal: getSpacing('xs'),
+    marginVertical: getSpacing('xs'),
+    borderRadius: getRadius('xs'),
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -249,36 +248,36 @@ const styles = StyleSheet.create({
   },
   imageContent: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: getSpacing('xs'),
+    left: getSpacing('xs'),
   },
   categoryBadge: {
     fontSize: 12,
     fontWeight: '600',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: getSpacing('xs'),
+    paddingVertical: getSpacing('xs'),
+    borderRadius: getRadius('xs'),
     textTransform: 'capitalize',
   },
   content: {
-    padding: 16,
+    padding: getSpacing('xs'),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: getSpacing('xs'),
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
     flex: 1,
-    marginRight: 8,
+    marginRight: getSpacing('xs'),
   },
   creatorBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: getSpacing('xs'),
+    paddingVertical: getSpacing('xs'),
+    borderRadius: getRadius('xs'),
   },
   creatorText: {
     fontSize: 10,
@@ -287,16 +286,16 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: getSpacing('xs'),
   },
   details: {
-    gap: 8,
-    marginBottom: 12,
+    gap: getSpacing('xs'),
+    marginBottom: getSpacing('xs'),
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: getSpacing('xs'),
   },
   detailText: {
     fontSize: 13,
@@ -305,12 +304,12 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: getSpacing('xs'),
   },
   tag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: getSpacing('xs'),
+    paddingVertical: getSpacing('xs'),
+    borderRadius: getRadius('xs'),
   },
   tagText: {
     fontSize: 11,
@@ -322,16 +321,16 @@ const styles = StyleSheet.create({
   },
   actions: {
     borderTopWidth: 1,
-    padding: 16,
+    padding: getSpacing('xs'),
   },
   rsvpButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: getSpacing('xs'),
   },
   rsvpButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: getSpacing('sm'),
+    borderRadius: getRadius('xs'),
     alignItems: 'center',
   },
   goingButton: {},

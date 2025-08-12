@@ -1,8 +1,6 @@
 import { supabase } from './supabase';
 import { 
-  User, Post, Comment, Event, MarketplaceListing, Group, GroupPost, 
-  Notification, Message, PrivateMessage, Room, Friend, FriendRequest,
-  UserLocation, UserPreferences, ApiResponse, PaginatedResponse 
+  User, Post, Comment, Notification, PrivateMessage, Room, Message, Friend, FriendRequest, ApiResponse, PaginatedResponse 
 } from '../types';
 import { CONFIG } from './config';
 
@@ -109,32 +107,54 @@ export const postsApi = {
     }
   },
 
-  // Toggle like for a post (optimistic, updates likes array and like_count)
+  // Toggle like for a post (using likes table)
   async toggleLike(postId: string, userId: string) {
-    // Get current likes
-    const { data: post, error } = await supabase
-      .from('posts')
-      .select('likes, like_count')
-      .eq('id', postId)
-      .single();
-    if (error || !post) throw error || new Error('Post not found');
-    let likes: string[] = post.likes || [];
-    let like_count: number = post.like_count || 0;
-    const liked = likes.includes(userId);
-    if (liked) {
-      likes = likes.filter((id: string) => id !== userId);
-      like_count = Math.max(0, like_count - 1);
-    } else {
-      likes = [...likes, userId];
-      like_count = like_count + 1;
+    try {
+      // Check if user already liked the post
+      const { data: existingLike, error: checkError } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (checkError && checkError.code && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingLike) {
+        // Unlike
+        const { error: deleteError } = await supabase
+          .from('likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', userId);
+        if (deleteError) throw deleteError;
+      } else {
+        // Like
+        const { error: insertError } = await supabase
+          .from('likes')
+          .insert({ post_id: postId, user_id: userId });
+        if (insertError) throw insertError;
+      }
+
+      // Recalculate likes_count and update post
+      const { count, error: countError } = await supabase
+        .from('likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', postId);
+      if (countError) throw countError;
+
+      const { error: updateError } = await supabase
+        .from('posts')
+        .update({ likes_count: count || 0 })
+        .eq('id', postId);
+      if (updateError) throw updateError;
+
+      return { liked: !existingLike };
+    } catch (error: any) {
+      throw error;
     }
-    // Update post
-    const { error: updateError } = await supabase
-      .from('posts')
-      .update({ likes, like_count })
-      .eq('id', postId);
-    if (updateError) throw updateError;
-    return { liked: !liked, like_count };
   },
 
   // Get comments for a post
@@ -150,7 +170,7 @@ export const postsApi = {
   async addComment(postId: string, text: string, userId: string) {
     return supabase
       .from('comments')
-      .insert({ post_id: postId, text, user_id: userId });
+      .insert({ post_id: postId, content: text, user_id: userId });
   },
 
   // Delete a comment (only if user is owner)
@@ -185,6 +205,25 @@ export const postsApi = {
       }, callback)
       .subscribe();
   },
+
+  // Paginated feed
+  getFeed: async (limit = 20, from = 0): Promise<ApiResponse<Post[]>> => {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_user_id_fkey ( id, full_name, avatar_url )
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
+
+      if (error) throw error;
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      return { data: null, error: error?.message || 'Unknown error', success: false };
+    }
+  },
 };
 
 // Public Rooms API - Using Supabase directly
@@ -213,6 +252,27 @@ export const roomsApi = {
     }
   },
 
+  // Leave a room
+  leaveRoom: async (roomId: string): Promise<ApiResponse<boolean>> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
+
+      const { error } = await supabase
+        .from('room_members')
+        .delete()
+        .eq('room_id', roomId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      return { data: null, error: error?.message || 'Unknown error', success: false };
+    }
+  },
+
   // Get public rooms
   getPublicRooms: async (): Promise<ApiResponse<Room[]>> => {
     try {
@@ -224,6 +284,31 @@ export const roomsApi = {
           room_members(count)
         `)
         .eq('is_private', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      return { data: null, error: error?.message || 'Unknown error', success: false };
+    }
+  },
+
+  // Get nearby rooms using simple bounding box around lat/lng
+  getNearbyRooms: async (params: { latitude: number; longitude: number; delta?: number }): Promise<ApiResponse<Room[]>> => {
+    const { latitude, longitude, delta = 0.1 } = params; // ~11km at equator; tune as needed
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .select(`
+          *,
+          creator:profiles!rooms_created_by_fkey(*),
+          room_members(count)
+        `)
+        .eq('is_private', false)
+        .gte('latitude', latitude - delta)
+        .lte('latitude', latitude + delta)
+        .gte('longitude', longitude - delta)
+        .lte('longitude', longitude + delta)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -338,6 +423,7 @@ export const messagesApi = {
         .insert({
           room_id: roomId,
           user_id: user.id,
+          sender_id: user.id,
           content,
           message_type: 'text',
         })
@@ -374,14 +460,24 @@ export const messagesApi = {
 // Notifications API - Using Supabase directly
 export const notificationsApi = {
   // Create a notification
-  createNotification: async ({ userId, type, data }: { userId: string, type: string, data: any }): Promise<ApiResponse<Notification>> => {
+  createNotification: async ({ senderId, receiverId, type, postId, roomId, message }: { 
+    senderId: string, 
+    receiverId: string, 
+    type: string, 
+    postId?: string, 
+    roomId?: string, 
+    message?: string 
+  }): Promise<ApiResponse<Notification>> => {
     try {
       const { data: notif, error } = await supabase
         .from('notifications')
         .insert({
-          user_id: userId,
+          sender_id: senderId,
+          receiver_id: receiverId,
           type,
-          data,
+          post_id: postId,
+          room_id: roomId,
+          message,
         })
         .select()
         .single();
@@ -398,7 +494,7 @@ export const notificationsApi = {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', userId)
+        .eq('receiver_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return { data, error: null, success: true };
@@ -410,10 +506,14 @@ export const notificationsApi = {
   // Mark a notification as read
   markNotificationAsRead: async (id: string): Promise<ApiResponse<boolean>> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('receiver_id', user.id);
       if (error) throw error;
       return { data: true, error: null, success: true };
     } catch (error: any) {
@@ -427,7 +527,7 @@ export const notificationsApi = {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', userId)
+        .eq('receiver_id', userId)
         .eq('is_read', false);
       if (error) throw error;
       return { data: true, error: null, success: true };
@@ -616,21 +716,37 @@ export const friendsApi = {
         return { data: null, error: 'Not authenticated', success: false };
       }
 
-      const { data, error } = await supabase
-        .rpc('get_user_friends', { user_uuid: user.id });
+      // Get friends where user_id is the current user
+      const { data: friendsData, error: friendsError } = await supabase
+        .from('friends')
+        .select(`
+          friend_id,
+          created_at,
+          profiles!friend_id (
+            id,
+            full_name,
+            avatar_url,
+            email,
+            neighborhood,
+            bio
+          )
+        `)
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (friendsError) throw friendsError;
 
-      const friends = data.map((friend: any) => ({
-        id: friend.friend_id,
-          user_id: user.id,
-        friend_id: friend.friend_id,
-        created_at: new Date().toISOString(),
+      const friends = friendsData.map((item: any) => ({
+        id: item.friend_id,
+        user_id: user.id,
+        friend_id: item.friend_id,
+        created_at: item.created_at,
         friend: {
-          id: friend.friend_id,
-          full_name: friend.friend_name,
-          avatar_url: friend.friend_avatar,
-          email: null,
+          id: item.profiles.id,
+          full_name: item.profiles.full_name,
+          avatar_url: item.profiles.avatar_url,
+          email: item.profiles.email,
+          neighborhood: item.profiles.neighborhood,
+          bio: item.profiles.bio,
           created_at: null,
           updated_at: null
         }
@@ -650,25 +766,43 @@ export const friendsApi = {
         return { data: null, error: 'Not authenticated', success: false };
       }
 
+      // Get pending friend requests where current user is the receiver
       const { data, error } = await supabase
-        .rpc('get_pending_friend_requests', { user_uuid: user.id });
+        .from('friend_requests')
+        .select(`
+          id,
+          from_user_id,
+          to_user_id,
+          status,
+          created_at,
+          updated_at,
+          profiles!friend_requests_from_user_id_fkey (
+            id,
+            full_name,
+            avatar_url,
+            email
+          )
+        `)
+        .eq('to_user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       
       const requests = data.map((req: any) => ({
-        id: req.request_id,
+        id: req.id,
         from_user_id: req.from_user_id,
-        to_user_id: user.id,
-        status: 'pending' as const,
+        to_user_id: req.to_user_id,
+        status: req.status as 'pending',
         created_at: req.created_at,
-        updated_at: req.created_at,
+        updated_at: req.updated_at,
         from_user: {
-          id: req.from_user_id,
-          full_name: req.from_user_name,
-          avatar_url: req.from_user_avatar,
-          email: null,
-          created_at: null,
-          updated_at: null
+          id: req.profiles.id,
+          full_name: req.profiles.full_name,
+          avatar_url: req.profiles.avatar_url,
+          email: req.profiles.email,
+          created_at: undefined,
+          updated_at: undefined
         }
       }));
 
@@ -681,11 +815,21 @@ export const friendsApi = {
   // Send friend request
   sendFriendRequest: async (toUserId: string): Promise<ApiResponse<boolean>> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
+
       const { data, error } = await supabase
-        .rpc('send_friend_request', { to_user_uuid: toUserId });
+        .from('friend_requests')
+        .insert({
+          from_user_id: user.id,
+          to_user_id: toUserId,
+          status: 'pending'
+        });
 
       if (error) throw error;
-      return { data, error: null, success: true };
+      return { data: true, error: null, success: true };
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
@@ -694,11 +838,47 @@ export const friendsApi = {
   // Accept friend request
   acceptFriendRequest: async (requestId: string): Promise<ApiResponse<boolean>> => {
     try {
-      const { data, error } = await supabase
-        .rpc('accept_friend_request', { request_uuid: requestId });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
 
-      if (error) throw error;
-      return { data, error: null, success: true };
+      // Update the friend request status
+      const { error: updateError } = await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted' })
+        .eq('id', requestId)
+        .eq('to_user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Get the friend request details
+      const { data: requestData, error: getError } = await supabase
+        .from('friend_requests')
+        .select('from_user_id, to_user_id')
+        .eq('id', requestId)
+        .single();
+
+      if (getError) throw getError;
+
+      // Add both users as friends
+      const { error: friend1Error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: requestData.from_user_id,
+          friend_id: requestData.to_user_id
+        });
+
+      const { error: friend2Error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: requestData.to_user_id,
+          friend_id: requestData.from_user_id
+        });
+
+      if (friend1Error || friend2Error) throw friend1Error || friend2Error;
+
+      return { data: true, error: null, success: true };
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
@@ -707,11 +887,19 @@ export const friendsApi = {
   // Reject friend request
   rejectFriendRequest: async (requestId: string): Promise<ApiResponse<boolean>> => {
     try {
-      const { data, error } = await supabase
-        .rpc('reject_friend_request', { request_uuid: requestId });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
+
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'rejected' })
+        .eq('id', requestId)
+        .eq('to_user_id', user.id);
 
       if (error) throw error;
-      return { data, error: null, success: true };
+      return { data: true, error: null, success: true };
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
@@ -720,11 +908,26 @@ export const friendsApi = {
   // Remove friend
   removeFriend: async (friendId: string): Promise<ApiResponse<boolean>> => {
     try {
-      const { data, error } = await supabase
-        .rpc('remove_friend', { friend_uuid: friendId });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
 
-      if (error) throw error;
-      return { data, error: null, success: true };
+      // Remove both friendship records
+      const { error: error1 } = await supabase
+        .from('friends')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('friend_id', friendId);
+
+      const { error: error2 } = await supabase
+        .from('friends')
+        .delete()
+        .eq('user_id', friendId)
+        .eq('friend_id', user.id);
+
+      if (error1 || error2) throw error1 || error2;
+      return { data: true, error: null, success: true };
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
@@ -767,6 +970,8 @@ export const privateMessagesApi = {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
   },
+
+
 
   // Send private message (saves to Supabase, real-time via WebSocket)
   sendPrivateMessage: async (receiverId: string, content: string): Promise<ApiResponse<PrivateMessage>> => {

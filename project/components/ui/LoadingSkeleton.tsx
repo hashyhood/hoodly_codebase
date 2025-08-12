@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../contexts/ThemeContext';
+import { getColor } from '../../lib/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +24,6 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius = 8,
   style 
 }) => {
-  const { theme } = useTheme();
   const shimmerAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,7 +64,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
         <LinearGradient
           colors={[
             'transparent',
-            theme.colors.glass.primary,
+            getColor('surface'),
             'transparent',
           ]}
           start={{ x: 0, y: 0 }}
@@ -82,10 +81,8 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
   avatar = false,
   style 
 }) => {
-  const { theme } = useTheme();
-
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.glass.primary }, style]}>
+    <View style={[styles.card, { backgroundColor: getColor('surface') }, style]}>
       {avatar && (
         <View style={styles.avatarContainer}>
           <Skeleton width={50} height={50} borderRadius={25} />

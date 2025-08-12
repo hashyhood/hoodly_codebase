@@ -57,7 +57,7 @@ export const EventCreation: React.FC<EventCreationProps> = ({
   onClose,
   onSave,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [event, setEvent] = useState<EventData>({
     title: '',
     description: '',
@@ -158,7 +158,7 @@ export const EventCreation: React.FC<EventCreationProps> = ({
 
   const renderProgressBar = () => (
     <View style={styles.progressContainer}>
-      <View style={[styles.progressBar, { backgroundColor: theme.colors.glass.secondary }]}>
+      <View style={[styles.progressBar, { backgroundColor: colors.glass.secondary }]}>
         <Animated.View
           style={[
             styles.progressFill,
@@ -167,12 +167,12 @@ export const EventCreation: React.FC<EventCreationProps> = ({
                 inputRange: [0, 1],
                 outputRange: ['0%', '100%'],
               }),
-              backgroundColor: theme.colors.gradients.neural[0],
+              backgroundColor: colors.neural.primary,
             },
           ]}
         />
       </View>
-      <Text style={[styles.progressText, { color: theme.colors.text.secondary }]}>
+      <Text style={[styles.progressText, { color: colors.text.secondary }]}>
         Step {activeStep} of 4
       </Text>
     </View>
@@ -180,44 +180,44 @@ export const EventCreation: React.FC<EventCreationProps> = ({
 
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.stepTitle, { color: colors.text.primary }]}>
         Event Details
       </Text>
       
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
           Event Title *
         </Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={event.title}
           onChangeText={(text) => setEvent(prev => ({ ...prev, title: text }))}
           placeholder="What's your event called?"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
           Description
         </Text>
         <TextInput
-          style={[styles.textArea, { color: theme.colors.text.primary }]}
+          style={[styles.textArea, { color: colors.text.primary }]}
           value={event.description}
           onChangeText={(text) => setEvent(prev => ({ ...prev, description: text }))}
           placeholder="Tell people what to expect..."
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
           multiline
           numberOfLines={4}
         />
       </View>
 
       <TouchableOpacity
-        style={[styles.categoryButton, { backgroundColor: theme.colors.glass.primary }]}
+        style={[styles.categoryButton, { backgroundColor: colors.glass.primary }]}
         onPress={() => setShowCategoryPicker(true)}
         activeOpacity={0.8}
       >
-        <Text style={[styles.categoryButtonText, { color: theme.colors.text.primary }]}>
+        <Text style={[styles.categoryButtonText, { color: colors.text.primary }]}>
           {event.category ? `Category: ${event.category}` : 'Select Category *'}
         </Text>
         <Text style={styles.categoryButtonIcon}>▶</Text>
@@ -227,37 +227,37 @@ export const EventCreation: React.FC<EventCreationProps> = ({
 
   const renderStep2 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.stepTitle, { color: colors.text.primary }]}>
         Date & Time
       </Text>
       
       <TouchableOpacity
-        style={[styles.dateTimeButton, { backgroundColor: theme.colors.glass.primary }]}
+        style={[styles.dateTimeButton, { backgroundColor: colors.glass.primary }]}
         onPress={() => setShowDatePicker(true)}
         activeOpacity={0.8}
       >
         <Text style={styles.dateTimeIcon}>📅</Text>
         <View style={styles.dateTimeInfo}>
-          <Text style={[styles.dateTimeLabel, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.dateTimeLabel, { color: colors.text.secondary }]}>
             Date
           </Text>
-          <Text style={[styles.dateTimeValue, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.dateTimeValue, { color: colors.text.primary }]}>
             {event.date.toLocaleDateString()}
           </Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.dateTimeButton, { backgroundColor: theme.colors.glass.primary }]}
+        style={[styles.dateTimeButton, { backgroundColor: colors.glass.primary }]}
         onPress={() => setShowTimePicker(true)}
         activeOpacity={0.8}
       >
         <Text style={styles.dateTimeIcon}>🕐</Text>
         <View style={styles.dateTimeInfo}>
-          <Text style={[styles.dateTimeLabel, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.dateTimeLabel, { color: colors.text.secondary }]}>
             Time
           </Text>
-          <Text style={[styles.dateTimeValue, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.dateTimeValue, { color: colors.text.primary }]}>
             {event.time}
           </Text>
         </View>
@@ -267,42 +267,42 @@ export const EventCreation: React.FC<EventCreationProps> = ({
 
   const renderStep3 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.stepTitle, { color: colors.text.primary }]}>
         Location & Capacity
       </Text>
       
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
           Location *
         </Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={event.location}
           onChangeText={(text) => setEvent(prev => ({ ...prev, location: text }))}
           placeholder="Where is your event?"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
         />
       </View>
 
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
           Max Attendees
         </Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           value={event.maxAttendees.toString()}
           onChangeText={(text) => {
             const num = parseInt(text) || 0;
             setEvent(prev => ({ ...prev, maxAttendees: Math.max(1, Math.min(100, num)) }));
           }}
           placeholder="20"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
           keyboardType="numeric"
         />
       </View>
 
-      <View style={[styles.toggleSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.toggleLabel, { color: theme.colors.text.primary }]}>
+      <View style={[styles.toggleSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.toggleLabel, { color: colors.text.primary }]}>
           Public Event
         </Text>
         <TouchableOpacity
@@ -310,14 +310,14 @@ export const EventCreation: React.FC<EventCreationProps> = ({
             styles.toggleButton,
             {
               backgroundColor: event.isPublic 
-                ? theme.colors.gradients.neural[0] 
-                : theme.colors.glass.secondary,
+                ? colors.neural.primary 
+                : colors.glass.secondary,
             },
           ]}
           onPress={() => setEvent(prev => ({ ...prev, isPublic: !prev.isPublic }))}
           activeOpacity={0.7}
         >
-          <Text style={[styles.toggleText, { color: event.isPublic ? theme.colors.text.inverse : theme.colors.text.secondary }]}>
+          <Text style={[styles.toggleText, { color: event.isPublic ? colors.text.inverse : colors.text.secondary }]}>
             {event.isPublic ? 'Yes' : 'No'}
           </Text>
         </TouchableOpacity>
@@ -327,18 +327,18 @@ export const EventCreation: React.FC<EventCreationProps> = ({
 
   const renderStep4 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+      <Text style={[styles.stepTitle, { color: colors.text.primary }]}>
         Tags & Final Details
       </Text>
       
-      <View style={[styles.inputSection, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+      <View style={[styles.inputSection, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
           Add Tags (optional)
         </Text>
         <TextInput
-          style={[styles.textInput, { color: theme.colors.text.primary }]}
+          style={[styles.textInput, { color: colors.text.primary }]}
           placeholder="Add a tag and press Enter"
-          placeholderTextColor={theme.colors.text.tertiary}
+          placeholderTextColor={colors.text.tertiary}
           onSubmitEditing={(e) => {
             addTag(e.nativeEvent.text);
           }}
@@ -350,11 +350,11 @@ export const EventCreation: React.FC<EventCreationProps> = ({
           {event.tags.map((tag) => (
             <TouchableOpacity
               key={tag}
-              style={[styles.tagChip, { backgroundColor: theme.colors.gradients.neural[0] }]}
+              style={[styles.tagChip, { backgroundColor: colors.neural.primary }]}
               onPress={() => removeTag(tag)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.tagText, { color: theme.colors.text.inverse }]}>
+              <Text style={[styles.tagText, { color: colors.text.inverse }]}>
                 {tag} ✕
               </Text>
             </TouchableOpacity>
@@ -362,17 +362,17 @@ export const EventCreation: React.FC<EventCreationProps> = ({
         </View>
       )}
 
-      <View style={[styles.summaryCard, { backgroundColor: theme.colors.glass.primary }]}>
-        <Text style={[styles.summaryTitle, { color: theme.colors.text.primary }]}>
+      <View style={[styles.summaryCard, { backgroundColor: colors.glass.primary }]}>
+        <Text style={[styles.summaryTitle, { color: colors.text.primary }]}>
           Event Summary
         </Text>
-        <Text style={[styles.summaryText, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.summaryText, { color: colors.text.secondary }]}>
           {event.title}
         </Text>
-        <Text style={[styles.summaryText, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.summaryText, { color: colors.text.secondary }]}>
           {event.date.toLocaleDateString()} at {event.time}
         </Text>
-        <Text style={[styles.summaryText, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.summaryText, { color: colors.text.secondary }]}>
           {event.location}
         </Text>
       </View>
@@ -393,20 +393,20 @@ export const EventCreation: React.FC<EventCreationProps> = ({
               styles.modalContainer,
               {
                 transform: [{ translateY: slideAnimation }],
-                backgroundColor: theme.colors.neural.background,
+                backgroundColor: colors.neural.background,
               },
             ]}
           >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+                <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
                 Create Event
               </Text>
               <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                <Text style={[styles.saveText, { color: theme.colors.neural.primary }]}>Create</Text>
+                <Text style={[styles.saveText, { color: colors.neural.primary }]}>Create</Text>
               </TouchableOpacity>
             </View>
 
@@ -424,11 +424,11 @@ export const EventCreation: React.FC<EventCreationProps> = ({
             <View style={styles.navigation}>
               {activeStep > 1 && (
                 <TouchableOpacity
-                  style={[styles.navButton, { backgroundColor: theme.colors.glass.primary }]}
+                  style={[styles.navButton, { backgroundColor: colors.glass.primary }]}
                   onPress={prevStep}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.navButtonText, { color: theme.colors.text.primary }]}>
+                  <Text style={[styles.navButtonText, { color: colors.text.primary }]}>
                     Previous
                   </Text>
                 </TouchableOpacity>
@@ -436,21 +436,21 @@ export const EventCreation: React.FC<EventCreationProps> = ({
               
               {activeStep < 4 ? (
                 <TouchableOpacity
-                  style={[styles.navButton, { backgroundColor: theme.colors.gradients.neural[0] }]}
+                  style={[styles.navButton, { backgroundColor: colors.neural.primary }]}
                   onPress={nextStep}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.navButtonText, { color: theme.colors.text.inverse }]}>
+                  <Text style={[styles.navButtonText, { color: colors.text.inverse }]}>
                     Next
                   </Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[styles.navButton, { backgroundColor: theme.colors.gradients.neural[0] }]}
+                  style={[styles.navButton, { backgroundColor: colors.neural.primary }]}
                   onPress={handleSave}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.navButtonText, { color: theme.colors.text.inverse }]}>
+                  <Text style={[styles.navButtonText, { color: colors.text.inverse }]}>
                     Create Event
                   </Text>
                 </TouchableOpacity>
@@ -466,8 +466,8 @@ export const EventCreation: React.FC<EventCreationProps> = ({
             >
               <View style={styles.pickerOverlay}>
                 <BlurView intensity={30} style={styles.pickerBlur}>
-                  <View style={[styles.pickerContainer, { backgroundColor: theme.colors.glass.primary }]}>
-                    <Text style={[styles.pickerTitle, { color: theme.colors.text.primary }]}>
+                  <View style={[styles.pickerContainer, { backgroundColor: colors.glass.primary }]}>
+                    <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>
                       Select Category
                     </Text>
                     <View style={styles.categoryGrid}>
@@ -495,7 +495,7 @@ export const EventCreation: React.FC<EventCreationProps> = ({
                       style={styles.cancelButton}
                       onPress={() => setShowCategoryPicker(false)}
                     >
-                      <Text style={[styles.cancelText, { color: theme.colors.text.secondary }]}>
+                      <Text style={[styles.cancelText, { color: colors.text.secondary }]}> 
                         Cancel
                       </Text>
                     </TouchableOpacity>

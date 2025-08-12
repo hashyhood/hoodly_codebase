@@ -13,17 +13,17 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading) {
-      if (isAuthenticated) {
-        // User is authenticated, redirect to main app
-        if (!pathname.startsWith('/(tabs)')) {
-          router.replace('/(tabs)');
-        }
-      } else {
-        // User is not authenticated, redirect to login
-        if (!pathname.startsWith('/login') && !pathname.startsWith('/register')) {
-          router.replace('/login');
-        }
+    if (loading) return;
+    
+    if (isAuthenticated) {
+      // User is authenticated, ensure they're on a protected route
+      if (pathname === '/auth' || pathname === '/login' || pathname === '/register') {
+        router.replace('/(tabs)');
+      }
+    } else {
+      // User is not authenticated, redirect to auth
+      if (!pathname.startsWith('/auth') && !pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+        router.replace('/auth');
       }
     }
   }, [isAuthenticated, loading, pathname]);

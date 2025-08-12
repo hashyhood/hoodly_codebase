@@ -1,59 +1,50 @@
-import React, { useRef, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  Dimensions,
-  Animated,
-  TouchableOpacity,
-  Text,
-} from 'react-native';
-import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useTheme } from '../../contexts/ThemeContext';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 
-const { height: screenHeight } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 interface BottomSheetProps {
   isVisible: boolean;
   onClose: () => void;
-  children: React.ReactNode;
   title?: string;
+  children: React.ReactNode;
   height?: number;
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
   isVisible,
   onClose,
+  title = 'Sheet',
   children,
-  title,
-  height = screenHeight * 0.7,
+  height: sheetHeight = height * 0.7,
 }) => {
-  const { theme } = useTheme();
-  const translateY = useRef(new Animated.Value(screenHeight)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const slideAnimation = useRef(new Animated.Value(height)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isVisible) {
       Animated.parallel([
-        Animated.timing(translateY, {
+        Animated.timing(slideAnimation, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(opacity, {
-          toValue: 1,
+        Animated.timing(backdropOpacity, {
+          toValue: 0.5,
           duration: 300,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: screenHeight,
+        Animated.timing(slideAnimation, {
+          toValue: height,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(opacity, {
+        Animated.timing(backdropOpacity, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
@@ -62,84 +53,51 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     }
   }, [isVisible]);
 
-  const onGestureEvent = Animated.event(
-    [{ nativeEvent: { translationY: translateY } }],
-    { useNativeDriver: true }
-  );
-
-  const onHandlerStateChange = (event: any) => {
-    if (event.nativeEvent.state === State.END) {
-      const { translationY } = event.nativeEvent;
-      if (translationY > 100) {
-        onClose();
-      } else {
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
-
   if (!isVisible) return null;
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.container}>
       <Animated.View
         style={[
           styles.backdrop,
           {
-            opacity,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            opacity: backdropOpacity,
+          },
+        ]}
+        onTouchEnd={onClose}
+      />
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            height: sheetHeight,
+            backgroundColor: getColor('surface'),
+            borderColor: getColor('divider'),
+            transform: [
+              {
+                translateY: slideAnimation,
+              },
+            ],
           },
         ]}
       >
-        <TouchableOpacity
-          style={styles.backdropTouchable}
-          onPress={onClose}
-          activeOpacity={1}
-        />
+        <View style={styles.handle} />
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: getColor('textPrimary') }]}>
+            {title}
+          </Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={[styles.closeText, { color: getColor('textSecondary') }]}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.content}>{children}</View>
       </Animated.View>
-      
-      <PanGestureHandler
-        onGestureEvent={onGestureEvent}
-        onHandlerStateChange={onHandlerStateChange}
-      >
-        <Animated.View
-          style={[
-            styles.container,
-            {
-              height,
-              transform: [{ translateY }],
-              backgroundColor: theme.colors.glass.primary,
-              borderColor: theme.colors.glass.border,
-            },
-          ]}
-        >
-          <BlurView intensity={20} style={styles.blurView}>
-            <View style={styles.header}>
-              <View style={[styles.handle, { backgroundColor: theme.colors.text.tertiary }]} />
-              {title && (
-                <Text style={[styles.title, { color: theme.colors.text.primary }]}>
-                  {title}
-                </Text>
-              )}
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.secondary }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.content}>
-              {children}
-            </View>
-          </BlurView>
-        </Animated.View>
-      </PanGestureHandler>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -153,11 +111,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  backdropTouchable: {
-    flex: 1,
-  },
-  container: {
+  sheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -167,8 +123,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
-  blurView: {
-    flex: 1,
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 10,
   },
   header: {
     flexDirection: 'row',
@@ -178,11 +140,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
   },
   title: {
     fontSize: 18,

@@ -13,12 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
-  const { theme } = useTheme();
   const { signIn, signInWithOAuth } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -55,20 +54,20 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}>
+    <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
       <LinearGradient
-        colors={theme.colors.gradients.neural as [string, string]}
+        colors={theme.gradients.primary}
         style={styles.backgroundGradient}
         pointerEvents="none"
       />
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}>
-            <ArrowLeft color={theme.colors.text.primary} size={24} />
+        <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}>
+            <Text style={{ color: getColor('textPrimary'), fontSize: 18 }}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Welcome Back</Text>
+          <Text style={[styles.headerTitle, { color: getColor('textPrimary') }]}>Welcome Back</Text>
           <View style={styles.headerSpacer} />
         </BlurView>
 
@@ -79,22 +78,22 @@ export default function LoginScreen() {
           <View style={styles.formContainer}>
             {/* Welcome Text */}
             <View style={styles.welcomeSection}>
-              <Text style={[styles.welcomeTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.welcomeTitle, { color: getColor('textPrimary') }]}>
                 Welcome to Hoodly
               </Text>
-              <Text style={[styles.welcomeSubtitle, { color: theme.colors.text.secondary }]}>
+              <Text style={[styles.welcomeSubtitle, { color: getColor('textSecondary') }]}>
                 Connect with your community and discover amazing people around you
               </Text>
             </View>
 
             {/* Login Form */}
             <View style={styles.formSection}>
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <Mail color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}> 
+                <Ionicons name="mail" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Email Address"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.email}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
                   keyboardType="email-address"
@@ -103,12 +102,12 @@ export default function LoginScreen() {
                 />
               </View>
 
-              <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary, borderColor: theme.colors.glass.border }]}>
-                <Lock color={theme.colors.text.secondary} size={20} />
+              <View style={[styles.inputContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}> 
+                <Ionicons name="lock-closed" size={20} color={getColor('textSecondary')} />
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text.primary }]}
+                  style={[styles.input, { color: getColor('textPrimary') }]}
                   placeholder="Password"
-                  placeholderTextColor={theme.colors.text.tertiary}
+                  placeholderTextColor={getColor('textTertiary')}
                   value={formData.password}
                   onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
                   secureTextEntry={!showPassword}
@@ -116,15 +115,15 @@ export default function LoginScreen() {
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   {showPassword ? (
-                    <EyeOff color={theme.colors.text.secondary} size={20} />
+                    <Ionicons name="eye-off" size={20} color={getColor('textSecondary')} />
                   ) : (
-                    <Eye color={theme.colors.text.secondary} size={20} />
+                    <Ionicons name="eye" size={20} color={getColor('textSecondary')} />
                   )}
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={[styles.forgotPasswordText, { color: theme.colors.text.secondary }]}>
+                <Text style={[styles.forgotPasswordText, { color: getColor('textSecondary') }]}>
                   Forgot Password?
                 </Text>
               </TouchableOpacity>
@@ -140,40 +139,40 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               <LinearGradient
-                colors={theme.colors.gradients.neural as [string, string]}
+                colors={theme.gradients.primary}
                 style={styles.loginGradient}
               >
-                <Text style={[styles.loginText, { color: theme.colors.text.inverse }]}>
+                <Text style={[styles.loginText, { color: getColor('textPrimary') }]}>
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
 
             {/* Divider */}
-            <View style={styles.dividerContainer}>
-              <View style={[styles.divider, { backgroundColor: theme.colors.glass.border }]} />
-              <Text style={[styles.dividerText, { color: theme.colors.text.tertiary }]}>or</Text>
-              <View style={[styles.divider, { backgroundColor: theme.colors.glass.border }]} />
+              <View style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: getColor('divider') }]} />
+                <Text style={[styles.dividerText, { color: getColor('textTertiary') }]}>or</Text>
+                <View style={[styles.divider, { backgroundColor: getColor('divider') }]} />
             </View>
 
             {/* OAuth Buttons */}
             <View style={styles.oauthSection}>
               <TouchableOpacity
-                style={[styles.oauthButton, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}
+                style={[styles.oauthButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
                 onPress={() => signInWithOAuth('google')}
               >
-                <Text style={[styles.oauthText, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.oauthText, { color: getColor('textPrimary') }]}>
                   Continue with Google
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Register Link */}
-            <TouchableOpacity
-              style={[styles.registerLink, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}
+              <TouchableOpacity
+                style={[styles.registerLink, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
               onPress={() => router.push('/register')}
             >
-              <Text style={[styles.registerText, { color: theme.colors.text.primary }]}>
+                <Text style={[styles.registerText, { color: getColor('textPrimary') }]}>
                 Don&apos;t have an account? Create one
               </Text>
             </TouchableOpacity>

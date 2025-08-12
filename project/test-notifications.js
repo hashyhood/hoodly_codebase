@@ -9,7 +9,7 @@ const SUPABASE_ANON_KEY = 'your-supabase-anon-key';
 // Initialize Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Test users (replace with actual user IDs from your database)
+// TODO: Remove test users - use real user IDs from Supabase database
 const TEST_USERS = {
   sender: 'sender-user-id',
   receiver: 'receiver-user-id'

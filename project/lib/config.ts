@@ -6,17 +6,17 @@ export const CONFIG = {
     ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZW9jYmdqaXZwaWZ2d3psbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMzkwMDMsImV4cCI6MjA2NzkxNTAwM30.qUuQhufz_ddMI0c__i7SovJZVU74TXQc1OPOV99aRl0',
   },
   
-  // API Configuration
+  // API Configuration - Using Supabase directly
   API: {
     // Development
     DEV: {
-      SOCKET_URL: 'http://192.168.18.232:5002',
-      API_URL: 'http://192.168.18.232:5002/api',
+      SOCKET_URL: null, // Disabled since we use Supabase Realtime
+      API_URL: 'https://ikeocbgjivpifvwzllkm.supabase.co',
     },
     // Production
     PROD: {
-      SOCKET_URL: 'https://your-hoodly-backend.com',
-      API_URL: 'https://your-hoodly-backend.com/api',
+      SOCKET_URL: null, // Disabled since we use Supabase Realtime
+      API_URL: 'https://ikeocbgjivpifvwzllkm.supabase.co',
     }
   },
   
@@ -41,7 +41,38 @@ export const CONFIG = {
     SECONDARY_COLOR: '#4A90E2',
     BACKGROUND_COLOR: '#1a1a2e',
     TEXT_COLOR: '#FFFFFF',
-  }
+  },
+
+  // Timeouts and Intervals
+  TIMEOUTS: {
+    TYPING_INDICATOR: 1000, // 1 second
+    RECONNECTION_DELAY: 5000, // 5 seconds
+    AUTO_SCROLL_DELAY: 100, // 100ms
+    SEARCH_DEBOUNCE: 300, // 300ms
+    MESSAGE_SEND_TIMEOUT: 10000, // 10 seconds
+  },
+
+  // Pagination
+  PAGINATION: {
+    DEFAULT_PAGE_SIZE: 20,
+    MAX_PAGE_SIZE: 50,
+    LOAD_MORE_THRESHOLD: 0.1,
+  },
+
+  // Message Limits
+  MESSAGES: {
+    MAX_CONTENT_LENGTH: 1000,
+    MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+    MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
+  },
+
+  // User Limits
+  USERS: {
+    MAX_INTERESTS: 5,
+    MIN_USERNAME_LENGTH: 3,
+    MAX_USERNAME_LENGTH: 20,
+    MIN_PASSWORD_LENGTH: 6,
+  },
 };
 
 // Get current environment

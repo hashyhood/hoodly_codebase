@@ -1,105 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
-interface Notification {
-  id: string;
-  type: 'message' | 'event' | 'alert' | 'neighbor';
-  title: string;
-  message: string;
-  time: string;
-  avatar?: string;
-  isRead: boolean;
-}
-
 interface DynamicIslandProps {
-  isExpanded: boolean;
-  onToggle: () => void;
-  notifications: Notification[];
-  onNotificationPress: (notification: Notification) => void;
-  onMarkAllRead: () => void;
+  unreadCount?: number;
+  notifications?: Array<{
+    id: string;
+    title: string;
+    message: string;
+    time: string;
+    isRead: boolean;
+  }>;
+  onPress?: () => void;
+  onMarkAllRead?: () => void;
 }
 
-export function DynamicIsland({ 
-  isExpanded, 
-  onToggle, 
-  notifications, 
-  onNotificationPress,
-  onMarkAllRead 
-}: DynamicIslandProps) {
-  const { theme } = useTheme();
-  const [animation] = useState(new Animated.Value(0));
-  const [pulseAnimation] = useState(new Animated.Value(1));
+export const DynamicIsland: React.FC<DynamicIslandProps> = ({
+  unreadCount = 0,
+  notifications = [],
+  onPress,
+  onMarkAllRead,
+}) => {
+  const { colors } = useTheme();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const expandAnimation = useRef(new Animated.Value(0)).current;
+  const heightAnimation = useRef(new Animated.Value(40)).current;
 
-  useEffect(() => {
-    Animated.spring(animation, {
-      toValue: isExpanded ? 1 : 0,
-      useNativeDriver: false,
-      tension: 100,
-      friction: 8,
-    }).start();
-  }, [isExpanded]);
-
-  // Pulse animation for unread notifications
-  useEffect(() => {
-    if (notifications.some(n => !n.isRead)) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnimation, {
-            toValue: 1.2,
-            duration: 1000,
-            useNativeDriver: false,
-          }),
-          Animated.timing(pulseAnimation, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: false,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnimation.setValue(1);
-    }
-  }, [notifications]);
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const islandWidth = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [120, width - 40],
-  });
-
-  const islandHeight = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [40, 300],
-  });
-
-  const borderRadius = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 25],
-  });
-
-  const opacity = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.9, 1],
-  });
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'message': return '💬';
-      case 'event': return '🎉';
-      case 'alert': return '🚨';
-      case 'neighbor': return '👋';
-      default: return '📱';
-    }
+  const toggleExpanded = () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    
+    Animated.parallel([
+      Animated.timing(expandAnimation, {
+        toValue: newExpanded ? 1 : 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(heightAnimation, {
+        toValue: newExpanded ? 200 : 40,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
-  const handleClose = () => {
+  const handlePress = () => {
     if (isExpanded) {
-      onToggle();
+      toggleExpanded();
+    } else {
+      onPress?.();
     }
   };
 
@@ -108,104 +61,89 @@ export function DynamicIsland({
       style={[
         styles.container,
         {
-          width: islandWidth,
-          height: islandHeight,
-          borderRadius,
-          opacity,
+          height: heightAnimation,
+          transform: [
+            {
+              scaleX: expandAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 1.2],
+              }),
+            },
+          ],
         },
       ]}
     >
-      <BlurView intensity={30} style={[styles.blurView, { borderColor: theme.colors.glass.border }]}>
+      <BlurView intensity={30} style={[styles.blurView, { borderColor: colors.glass.border }]}>
         <TouchableOpacity
-          style={styles.islandContent}
-          onPress={onToggle}
+          style={styles.content}
+          onPress={handlePress}
           activeOpacity={0.8}
         >
           {!isExpanded ? (
-            // Collapsed state
             <View style={styles.collapsedContent}>
-              <Animated.View style={[styles.statusIndicator, { 
-                transform: [{ scale: pulseAnimation }],
-                backgroundColor: theme.colors.neural.primary,
-              }]}>
-                <Text style={[styles.statusText, { color: theme.colors.neural.primary }]}>●</Text>
-              </Animated.View>
-              <Text style={[styles.collapsedText, { color: theme.colors.text.primary }]}>
-                {unreadCount > 0 ? `${unreadCount} new` : 'Hoodly'}
+              <View style={[styles.statusIndicator, { backgroundColor: colors.neural.primary }]}>
+                <Text style={[styles.statusText, { color: colors.neural.primary }]}>●</Text>
+              </View>
+              <Text style={[styles.collapsedText, { color: colors.text.primary }]}>
+                {unreadCount > 0 ? `${unreadCount} new notifications` : 'All caught up'}
               </Text>
               {unreadCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: theme.colors.neural.primary }]}>
-                  <Text style={[styles.badgeText, { color: theme.colors.text.primary }]}>{unreadCount}</Text>
+                <View style={[styles.badge, { backgroundColor: colors.neural.primary }]}>
+                  <Text style={[styles.badgeText, { color: colors.text.primary }]}>{unreadCount}</Text>
                 </View>
               )}
             </View>
           ) : (
-            // Expanded state
             <View style={styles.expandedContent}>
               <View style={styles.expandedHeader}>
-                <Text style={[styles.expandedTitle, { color: theme.colors.text.primary }]}>Live Activity</Text>
-                <View style={styles.headerActions}>
-                  {unreadCount > 0 && (
-                    <TouchableOpacity onPress={onMarkAllRead} style={styles.markReadButton}>
-                      <Text style={[styles.markReadText, { color: theme.colors.text.secondary }]}>Mark all read</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                    <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+                <Text style={[styles.expandedTitle, { color: colors.text.primary }]}>Live Activity</Text>
+                {unreadCount > 0 && (
+                  <TouchableOpacity onPress={onMarkAllRead}>
+                    <Text style={[styles.markReadText, { color: colors.text.secondary }]}>Mark all read</Text>
                   </TouchableOpacity>
-                </View>
+                )}
+                <TouchableOpacity onPress={toggleExpanded}>
+                  <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
+                </TouchableOpacity>
               </View>
               
               <View style={styles.notificationsList}>
-                {notifications.length > 0 ? (
-                  notifications.slice(0, 5).map((notification) => (
-                    <TouchableOpacity
-                      key={notification.id}
-                      style={[
-                        styles.notificationItem,
-                        !notification.isRead && styles.unreadNotification
-                      ]}
-                      onPress={() => onNotificationPress(notification)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.notificationIcon}>
-                        {getNotificationIcon(notification.type)}
+                {notifications.slice(0, 3).map((notification) => (
+                  <View key={notification.id} style={styles.notificationItem}>
+                    <View style={styles.notificationContent}>
+                      <Text style={[styles.notificationTitle, { color: colors.text.primary }]}>
+                        {notification.title}
                       </Text>
-                      <View style={styles.notificationContent}>
-                        <Text style={[styles.notificationTitle, { color: theme.colors.text.primary }]}>
-                          {notification.title}
-                        </Text>
-                        <Text style={[styles.notificationMessage, { color: theme.colors.text.secondary }]}>
-                          {notification.message}
-                        </Text>
-                        <Text style={[styles.notificationTime, { color: theme.colors.text.tertiary }]}>
-                          {notification.time}
-                        </Text>
-                      </View>
-                      {!notification.isRead && (
-                        <View style={[styles.unreadDot, { backgroundColor: theme.colors.neural.primary }]} />
-                      )}
-                    </TouchableOpacity>
-                  ))
-                ) : (
+                      <Text style={[styles.notificationMessage, { color: colors.text.secondary }]}>
+                        {notification.message}
+                      </Text>
+                      <Text style={[styles.notificationTime, { color: colors.text.tertiary }]}>
+                        {notification.time}
+                      </Text>
+                    </View>
+                    {!notification.isRead && (
+                      <View style={[styles.unreadDot, { backgroundColor: colors.neural.primary }]} />
+                    )}
+                  </View>
+                ))}
+                
+                {notifications.length === 0 && (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>✨</Text>
-                    <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>All caught up!</Text>
+                    <Text style={[styles.emptyText, { color: colors.text.secondary }]}>All caught up!</Text>
                   </View>
                 )}
               </View>
               
-              {/* Close button at bottom */}
-              <TouchableOpacity onPress={handleClose} style={styles.bottomCloseButton}>
-                <Text style={[styles.bottomCloseText, { color: theme.colors.text.secondary }]}>Tap to close</Text>
-              </TouchableOpacity>
+              <View style={styles.expandedFooter}>
+                <Text style={[styles.bottomCloseText, { color: colors.text.secondary }]}>Tap to close</Text>
+              </View>
             </View>
           )}
         </TouchableOpacity>
       </BlurView>
     </Animated.View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -225,7 +163,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
   },
-  islandContent: {
+  content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -352,7 +290,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
   },
-  bottomCloseButton: {
+  expandedFooter: {
     alignItems: 'center',
     paddingVertical: 12,
     marginTop: 8,

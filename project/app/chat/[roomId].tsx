@@ -16,18 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Send, ArrowLeft, Users } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { messagesAPI } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
 import type { Database } from '../../lib/supabase';
-import type { Message as DBMessage } from '../../types';
 
-const { width, height } = Dimensions.get('window');
-
-type Message = DBMessage & {
+type Message = Database['public']['Tables']['messages']['Row'] & {
   user_id?: string;
   profiles?: {
     full_name: string;
@@ -36,7 +32,6 @@ type Message = DBMessage & {
 };
 
 export default function ChatScreen() {
-  const { theme } = useTheme();
   const { user } = useAuth();
   if (!user) return null;
 
@@ -78,6 +73,22 @@ export default function ChatScreen() {
       }
     });
     subscriptionRef.current = subscription;
+    
+    // Add error handling for subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current.subscribe((status: any) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Chat subscription error');
+          // Attempt to reconnect after a delay
+          setTimeout(() => {
+            if (roomId) {
+              loadMessages();
+            }
+          }, 5000);
+        }
+      });
+    }
+    
     return () => {
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
@@ -103,13 +114,45 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     if (!message.trim() || !user || isSending) return;
+    
+    const messageContent = message.trim();
+    const tempId = `temp_${Date.now()}`;
+    
+    // Add message to local state immediately for optimistic UI
+    const tempMessage: Message = {
+      id: tempId,
+      room_id: roomId as string,
+      user_id: user.id,
+      content: messageContent,
+      message_type: 'text',
+      file_url: null,
+      location_data: null,
+      is_edited: false,
+      edited_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      profiles: {
+        full_name: user.email || 'You',
+        avatar_url: null
+      }
+    };
+    
+    setMessages(prev => [...prev, tempMessage]);
+    setMessage('');
+    
     try {
       setIsSending(true);
-      await messagesAPI.sendMessage(roomId as string, message.trim());
-      setMessage('');
+      await messagesAPI.sendMessage(roomId as string, messageContent);
+      
+      // Remove temp message and let real-time update handle the real message
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
+      
+      // Remove temp message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setMessage(messageContent); // Restore message content
     } finally {
       setIsSending(false);
     }
@@ -127,18 +170,18 @@ export default function ChatScreen() {
         isMine ? styles.messageRowRight : styles.messageRowLeft
       ]}>
         {!isMine && (
-          <Text style={[styles.username, { color: theme.colors.text.secondary }]}> {item.profiles?.full_name || 'Unknown User'} </Text>
+          <Text style={[styles.username, { color: getColor('textSecondary') }]}> {item.profiles?.full_name || 'Unknown User'} </Text>
         )}
         <View style={[
           styles.messageBubble,
           isMine ? styles.bubbleMine : styles.bubbleOther,
           isMine
-            ? { backgroundColor: theme.colors.gradients.neural[0], alignSelf: 'flex-end' }
-            : { backgroundColor: theme.colors.glass.primary, alignSelf: 'flex-start' },
+            ? { backgroundColor: getColor('success'), alignSelf: 'flex-end' }
+            : { backgroundColor: getColor('surface'), alignSelf: 'flex-start' },
         ]}>
           <Text style={[
             styles.messageText,
-            isMine ? { color: theme.colors.text.inverse } : { color: theme.colors.text.primary },
+            isMine ? { color: getColor('textPrimary') } : { color: getColor('textPrimary') },
             { flexWrap: 'wrap', maxWidth: '80%' }
           ]}>{item.content}</Text>
           <Text style={styles.timeText}>
@@ -156,24 +199,24 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={[styles.container, { backgroundColor: theme.colors.neural.background }]}> 
+        <View style={[styles.container, { backgroundColor: getColor('bg') }]}> 
           <BlurView intensity={30} style={[styles.backgroundGradient, { opacity: 0.1 }]} />
           {/* Header */}
-          <BlurView intensity={30} style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}> 
+          <BlurView intensity={30} style={[styles.header, { borderBottomColor: getColor('divider') }]}> 
             <SafeAreaView>
               <View style={styles.headerContent}>
-                <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.glass.secondary }]}> 
-                  <ArrowLeft color={theme.colors.text.primary} size={24} />
+                <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: getColor('surface') }]}> 
+                  <Ionicons name="arrow-back" size={24} color={getColor('textPrimary')} />
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
-                  <View style={[styles.roomEmojiContainer, { backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}> 
+                  <View style={[styles.roomEmojiContainer, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}> 
                     <Text style={styles.roomEmoji}>{roomEmoji || '💬'}</Text>
                   </View>
                   <View style={styles.roomDetails}>
-                    <Text style={[styles.roomName, { color: theme.colors.text.primary }]}>{roomName || 'Chat Room'}</Text>
+                    <Text style={[styles.roomName, { color: getColor('textPrimary') }]}>{roomName || 'Chat Room'}</Text>
                     <View style={styles.connectionStatus}>
-                      <Users color={theme.colors.text.tertiary} size={12} />
-                      <Text style={[styles.memberCount, { color: theme.colors.text.tertiary }]}> {messages.length > 0 ? Math.floor(Math.random() * 50) + 10 : 0} members </Text>
+                      <Ionicons name="people" size={12} color={getColor('textTertiary')} />
+                      <Text style={[styles.memberCount, { color: getColor('textTertiary') }]}> {messages.length > 0 ? Math.floor(Math.random() * 50) + 10 : 0} members </Text>
                     </View>
                   </View>
                 </View>
@@ -196,14 +239,14 @@ export default function ChatScreen() {
               isLoading ? (
                 <View style={styles.emptyState}>
                   <Text style={[styles.emptyIcon, { fontSize: 48 }]}>⚙️</Text>
-                  <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>Loading messages...</Text>
-                  <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>Please wait while we fetch the conversation.</Text>
+                 <Text style={[styles.emptyTitle, { color: getColor('textPrimary') }]}>Loading messages...</Text>
+                 <Text style={[styles.emptyText, { color: getColor('textSecondary') }]}>Please wait while we fetch the conversation.</Text>
                 </View>
               ) : (
                 <View style={styles.emptyState}>
                   <Text style={[styles.emptyIcon, { fontSize: 48 }]}>💬</Text>
-                  <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>No messages yet. Be the first to vibe!</Text>
-                  <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>Start the conversation below.</Text>
+                  <Text style={[styles.emptyTitle, { color: getColor('textPrimary') }]}>No messages yet. Be the first to vibe!</Text>
+                  <Text style={[styles.emptyText, { color: getColor('textSecondary') }]}>Start the conversation below.</Text>
                 </View>
               )
             }
@@ -214,32 +257,36 @@ export default function ChatScreen() {
               style={styles.scrollToBottomFab}
               onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
             >
-              <Ionicons name="arrow-down-circle" size={36} color={theme.colors.neural.primary} />
+                <Ionicons name="arrow-down-circle" size={36} color={getColor('success')} />
             </TouchableOpacity>
           )}
           {/* Input */}
-          <View style={[styles.inputContainer, { borderTopColor: theme.colors.glass.border }]}> 
+          <View style={[styles.inputContainer, { borderTopColor: getColor('divider') }]}> 
             <TextInput
-              style={[styles.input, { color: theme.colors.text.primary, backgroundColor: theme.colors.glass.secondary, borderColor: theme.colors.glass.border }]}
+              style={[styles.input, { color: getColor('textPrimary'), backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
               placeholder="Type a message..."
-              placeholderTextColor={theme.colors.text.tertiary}
+              placeholderTextColor={getColor('textTertiary')}
               value={message}
               onChangeText={setMessage}
               multiline
-              maxLength={500}
+              maxLength={1000}
               editable={!isSending}
               onSubmitEditing={sendMessage}
             />
             <TouchableOpacity
-              style={[styles.sendButton, (!user || isSending) && styles.sendButtonDisabled]}
+              style={styles.sendButton}
               onPress={sendMessage}
-              disabled={!user || isSending}
+              disabled={!message.trim() || isSending}
             >
               <LinearGradient
-                colors={user && !isSending ? (theme.colors.gradients.neural as [string, string]) : ['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
+                colors={user && !isSending ? theme.gradients.primary : ['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
                 style={styles.sendButtonGradient}
               >
-                <Send color={user && !isSending ? "#fff" : theme.colors.text.tertiary} size={20} />
+                <Ionicons 
+                  name="send" 
+                  size={20} 
+                  color={user && !isSending ? "#fff" : getColor('textTertiary')} 
+                />
               </LinearGradient>
             </TouchableOpacity>
           </View>

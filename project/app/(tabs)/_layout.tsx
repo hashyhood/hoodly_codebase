@@ -1,38 +1,84 @@
-import { Tabs } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import { StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Slot, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import AuthWrapper from '../../components/AuthWrapper';
-import { FloatingActionButton } from '../../components/ui/FloatingActionButton';
-import { useEffect, useState } from 'react';
+import { TabBar } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
-import SocketEvents from '../../components/ui/SocketEvents';
+import { logger } from '../../lib/logger';
+// SocketEvents removed - using Supabase Realtime instead
+import { usePathname } from 'expo-router';
+import { theme, getColor } from '../../lib/theme';
 
 export default function TabLayout() {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const pathname = usePathname();
+  const router = useRouter();
   
-  // Load initial unread count
+  // Extract current route from pathname with better error handling
+  const getCurrentRoute = () => {
+    try {
+      if (pathname.includes('/discover')) return 'discover';
+      if (pathname.includes('/chat')) return 'chat';
+      if (pathname.includes('/notifications')) return 'notifications';
+      if (pathname.includes('/profile')) return 'profile';
+      return 'index';
+    } catch (error) {
+      logger.warn('Error getting current route:', error);
+      return 'index';
+    }
+  };
+
+  // Tab items configuration
+  const tabItems = [
+    { key: 'index', icon: 'home' as const, label: 'Home' },
+    { key: 'discover', icon: 'compass' as const, label: 'Discover' },
+    { key: 'chat', icon: 'chatbubbles' as const, label: 'Chat' },
+    { key: 'notifications', icon: 'notifications' as const, label: 'Notifications' },
+    { key: 'profile', icon: 'person' as const, label: 'Profile' },
+  ];
+
+  const handleTabPress = (key: string) => {
+    if (key === 'index') {
+      router.push('/(tabs)/' as any);
+    } else {
+      router.push(`/(tabs)/${key}` as any);
+    }
+  };
+  
+  // Load initial unread count with better error handling
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
     
     loadUnreadCount();
-  }, [user]);
+  }, [user?.id]);
 
   const loadUnreadCount = async () => {
+    if (!user?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const { count, error } = await supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user?.id)
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', user.id)
         .eq('is_read', false);
 
-      if (error) throw error;
+      if (error) {
+        logger.warn('Unread count error:', error);
+        setUnreadCount(0);
+        return;
+      }
+
       setUnreadCount(count || 0);
     } catch (error) {
-      console.error('Error loading unread count:', error);
+      logger.error('Error loading unread count:', error);
+      setUnreadCount(0);
     }
   };
 
@@ -42,148 +88,29 @@ export default function TabLayout() {
   };
   
   return (
-    <AuthWrapper>
-      <View style={styles.container}>
-        <Tabs
-          screenOptions={{
-            headerShown: false,
-            tabBarStyle: [styles.tabBar, {
-              backgroundColor: theme.colors.glass.overlay,
-              borderColor: theme.colors.glass.border,
-            }],
-            tabBarBackground: () => (
-              <BlurView intensity={30} style={styles.blurView} />
-            ),
-            tabBarActiveTintColor: theme.colors.neural.primary,
-            tabBarInactiveTintColor: theme.colors.text.tertiary,
-            tabBarLabelStyle: styles.tabLabel,
-            tabBarIconStyle: styles.tabIcon,
-          }}
-        >
-          <Tabs.Screen
-            name="index"
-            options={{
-              title: 'Home',
-              tabBarIcon: ({ color, size }) => (
-                <View style={styles.iconContainer}>
-                  <Text style={[styles.tabIconText, { color, fontSize: size }]}>🏠</Text>
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="discover"
-            options={{
-              title: 'Discover',
-              tabBarIcon: ({ color, size }) => (
-                <View style={styles.iconContainer}>
-                  <Text style={[styles.tabIconText, { color, fontSize: size }]}>🔍</Text>
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="chat"
-            options={{
-              title: 'Chat',
-              tabBarIcon: ({ color, size }) => (
-                <View style={styles.iconContainer}>
-                  <Text style={[styles.tabIconText, { color, fontSize: size }]}>💬</Text>
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="notifications"
-            options={{
-              title: 'Notifications',
-              tabBarIcon: ({ color, size }) => (
-                <View style={styles.iconContainer}>
-                  <Text style={[styles.tabIconText, { color, fontSize: size }]}>🔔</Text>
-                  {unreadCount > 0 && (
-                    <View style={[styles.badge, { backgroundColor: theme.colors.status.error }]}>
-                      <Text style={styles.badgeText}>
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="profile"
-            options={{
-              title: 'Profile',
-              tabBarIcon: ({ color, size }) => (
-                <View style={styles.iconContainer}>
-                  <Text style={[styles.tabIconText, { color, fontSize: size }]}>👤</Text>
-                </View>
-              ),
-            }}
-          />
-        </Tabs>
-        
-        {/* Floating Action Button for secondary features */}
-        <FloatingActionButton />
-        
-        {/* Socket events for real-time notifications */}
-        <SocketEvents
-          onUnreadCountChange={handleUnreadCountChange}
-        />
+    <View style={styles.container}>
+      {/* Tab Content - This was missing! */}
+      <View style={styles.content}>
+        <Slot />
       </View>
-    </AuthWrapper>
+      
+      {/* Modern Tab Bar */}
+      <TabBar 
+        items={tabItems}
+        activeTab={getCurrentRoute()}
+        onTabPress={handleTabPress}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
-  tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: 0.5,
-    elevation: 0,
-    height: 80,
-    paddingBottom: 15,
-    paddingTop: 10,
-  },
-  blurView: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  tabIcon: {
-    marginBottom: 0,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  tabIconText: {
-    fontSize: 24,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
+  content: {
+    flex: 1,
+    paddingBottom: 120, // Increased space for floating nav bar
   },
 });

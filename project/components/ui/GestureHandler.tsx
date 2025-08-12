@@ -28,7 +28,7 @@ export const GestureHandler: React.FC<GestureHandlerProps> = ({
   onLongPress,
   enableGestures = true,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(1)).current;
@@ -214,7 +214,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
   direction = 'right',
   duration = 400,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;

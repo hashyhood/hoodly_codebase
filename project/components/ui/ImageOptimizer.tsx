@@ -45,7 +45,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   placeholder = '🖼️',
   fallback = 'https://via.placeholder.com/400x300/1a1a1a/ffffff?text=Image',
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [currentSource, setCurrentSource] = useState(source);
@@ -129,7 +129,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
             {
               opacity: fadeAnimation,
               borderRadius,
-              backgroundColor: theme.colors.glass.primary,
+              backgroundColor: colors.neural.background,
             },
           ]}
         >
@@ -176,7 +176,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
       {/* Error State */}
       {hasError && currentSource === fallback && (
         <View style={[styles.errorOverlay, { borderRadius }]}>
-          <Text style={[styles.errorText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.errorText, { color: colors.text.secondary }]}>
             Failed to load image
           </Text>
         </View>
@@ -184,8 +184,8 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
 
       {/* Priority Badge */}
       {priority === 'high' && (
-        <View style={[styles.priorityBadge, { backgroundColor: theme.colors.status.warning }]}>
-          <Text style={[styles.priorityText, { color: theme.colors.text.inverse }]}>
+        <View style={[styles.priorityBadge, { backgroundColor: colors.status.warning }]}>
+          <Text style={[styles.priorityText, { color: colors.text.inverse }]}>
             High
           </Text>
         </View>
@@ -199,7 +199,7 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
   onClose,
   onImageSelect,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [optimizationLevel, setOptimizationLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [imageQuality, setImageQuality] = useState(80);
@@ -239,12 +239,7 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
     }
   }, [isVisible]);
 
-  const sampleImages = [
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-  ];
+  // Images will be loaded from Supabase or user uploads
 
   const handleImageSelect = (image: string) => {
     setSelectedImage(image);
@@ -270,56 +265,56 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
               styles.modalContainer,
               {
                 transform: [{ translateY: slideAnimation }],
-                backgroundColor: theme.colors.neural.background,
+                backgroundColor: colors.neural.background,
               },
             ]}
           >
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={[styles.closeText, { color: theme.colors.text.primary }]}>✕</Text>
+              <Text style={[styles.closeText, { color: colors.text.primary }]}>✕</Text>
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
                 Image Optimizer
               </Text>
               <View style={styles.headerSpacer} />
             </View>
 
             {/* Optimization Controls */}
-            <View style={[styles.controlsContainer, { backgroundColor: theme.colors.glass.primary }]}>
-              <Text style={[styles.controlsTitle, { color: theme.colors.text.primary }]}>
+            <View style={[styles.controlsContainer, { backgroundColor: colors.glass.primary }]}>
+              <Text style={[styles.controlsTitle, { color: colors.text.primary }]}>
                 Optimization Settings
               </Text>
               
               <View style={styles.controlRow}>
-                <Text style={[styles.controlLabel, { color: theme.colors.text.secondary }]}>
+                <Text style={[styles.controlLabel, { color: colors.text.secondary }]}>
                   Quality: {imageQuality}%
                 </Text>
                 <View style={styles.qualitySlider}>
                   <TouchableOpacity
-                    style={[styles.qualityButton, { backgroundColor: theme.colors.glass.secondary }]}
+                    style={[styles.qualityButton, { backgroundColor: colors.glass.secondary }]}
                     onPress={() => setImageQuality(Math.max(10, imageQuality - 10))}
                   >
-                    <Text style={[styles.qualityButtonText, { color: theme.colors.text.primary }]}>
+                    <Text style={[styles.qualityButtonText, { color: colors.text.primary }]}>
                       -
                     </Text>
                   </TouchableOpacity>
-                  <View style={[styles.qualityBar, { backgroundColor: theme.colors.glass.secondary }]}>
+                  <View style={[styles.qualityBar, { backgroundColor: colors.glass.secondary }]}>
                     <View
                       style={[
                         styles.qualityFill,
                         {
                           width: `${imageQuality}%`,
-                          backgroundColor: theme.colors.gradients.neural[0],
+                          backgroundColor: colors.neural.primary,
                         },
                       ]}
                     />
                   </View>
                   <TouchableOpacity
-                    style={[styles.qualityButton, { backgroundColor: theme.colors.glass.secondary }]}
+                    style={[styles.qualityButton, { backgroundColor: colors.glass.secondary }]}
                     onPress={() => setImageQuality(Math.min(100, imageQuality + 10))}
                   >
-                    <Text style={[styles.qualityButtonText, { color: theme.colors.text.primary }]}>
+                    <Text style={[styles.qualityButtonText, { color: colors.text.primary }]}>
                       +
                     </Text>
                   </TouchableOpacity>
@@ -327,13 +322,13 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
               </View>
 
               <View style={styles.priorityOptions}>
-                <Text style={[styles.controlLabel, { color: theme.colors.text.secondary }]}>
+                <Text style={[styles.controlLabel, { color: colors.text.secondary }]}>
                   Priority:
                 </Text>
                 {[
-                  { id: 'low', label: 'Low', color: theme.colors.status.info },
-                  { id: 'medium', label: 'Medium', color: theme.colors.status.warning },
-                  { id: 'high', label: 'High', color: theme.colors.status.error },
+                  { id: 'low', label: 'Low', color: colors.status.info },
+                  { id: 'medium', label: 'Medium', color: colors.status.warning },
+                  { id: 'high', label: 'High', color: colors.status.error },
                 ].map((priority) => (
                   <TouchableOpacity
                     key={priority.id}
@@ -342,13 +337,13 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
                       { backgroundColor: priority.color },
                       optimizationLevel === priority.id && {
                         borderWidth: 2,
-                        borderColor: theme.colors.text.primary,
+                        borderColor: colors.text.primary,
                       },
                     ]}
                     onPress={() => setOptimizationLevel(priority.id as any)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.priorityOptionText, { color: theme.colors.text.inverse }]}>
+                    <Text style={[styles.priorityOptionText, { color: colors.text.inverse }]}>
                       {priority.label}
                     </Text>
                   </TouchableOpacity>
@@ -358,12 +353,12 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
 
             {/* Image Gallery */}
             <ScrollView style={styles.galleryContainer} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.galleryTitle, { color: theme.colors.text.primary }]}>
-                Sample Images
+              <Text style={[styles.galleryTitle, { color: colors.text.primary }]}>
+                Image Gallery
               </Text>
               
               <View style={styles.imageGrid}>
-                {sampleImages.map((image, index) => (
+                {[].length > 0 ? [].map((image: string, index: number) => (
                   <TouchableOpacity
                     key={index}
                     style={styles.imageItem}
@@ -378,15 +373,19 @@ export const ImageOptimizer: React.FC<ImageOptimizerProps> = ({
                       priority={optimizationLevel}
                     />
                     <View style={styles.imageInfo}>
-                      <Text style={[styles.imageSize, { color: theme.colors.text.secondary }]}>
+                      <Text style={[styles.imageSize, { color: colors.text.secondary }]}>
                         {imageQuality}% quality
                       </Text>
-                      <Text style={[styles.imagePriority, { color: theme.colors.text.tertiary }]}>
+                      <Text style={[styles.imagePriority, { color: colors.text.tertiary }]}>
                         {optimizationLevel} priority
                       </Text>
                     </View>
                   </TouchableOpacity>
-                ))}
+                )) : (
+                  <Text style={[styles.galleryTitle, { color: colors.text.secondary, textAlign: 'center' }]}>
+                    No images available
+                  </Text>
+                )}
               </View>
             </ScrollView>
           </Animated.View>

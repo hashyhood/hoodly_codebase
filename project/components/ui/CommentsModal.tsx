@@ -17,6 +17,7 @@ import { X, Send, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiUrl } from '../../lib/config';
+import { postsApi } from '../../lib/api';
 
 interface Comment {
   id: string;
@@ -45,7 +46,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
   onClose,
   onCommentAdded,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -62,13 +63,12 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
       setLoading(!refresh);
       setRefreshing(refresh);
 
-      const response = await fetch(`${getApiUrl()}/posts/${postId}/comments`);
-      const data = await response.json();
-
-      if (data.success) {
-        setComments(data.comments || []);
+      const result = await postsApi.getComments(postId);
+      
+      if (result.data) {
+        setComments(result.data);
       } else {
-        console.error('Failed to load comments:', data.error);
+        console.error('Failed to load comments:', result.error);
       }
     } catch (error) {
       console.error('Error loading comments:', error);
@@ -85,23 +85,14 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
     try {
       setSubmitting(true);
 
-      const response = await fetch(`${getApiUrl()}/posts/${postId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          text: newComment.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setComments(prev => [data.comment, ...prev]);
+      const result = await postsApi.addComment(postId, newComment.trim(), user.id);
+      
+      if (result.data) {
+        if (result.data) {
+          setComments(prev => [result.data as unknown as Comment, ...prev]);
+        }
         setNewComment('');
-        onCommentAdded?.(data.comment);
+        onCommentAdded?.(result.data);
         inputRef.current?.blur();
       } else {
         Alert.alert('Error', 'Failed to add comment');
@@ -128,19 +119,9 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch(`${getApiUrl()}/comments/${commentId}`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  userId: user.id,
-                }),
-              });
-
-              const data = await response.json();
-
-              if (data.success) {
+              const result = await postsApi.deleteComment(commentId, user.id);
+              
+              if (result.data !== null) {
                 setComments(prev => prev.filter(comment => comment.id !== commentId));
               } else {
                 Alert.alert('Error', 'Failed to delete comment');
@@ -186,10 +167,10 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
           <View style={styles.commentUser}>
             <Text style={styles.commentAvatar}>{item.user.avatar}</Text>
             <View style={styles.commentUserInfo}>
-              <Text style={[styles.commentUserName, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.commentUserName, { color: colors.text.primary }]}>
                 {item.user.personalName || item.user.username}
               </Text>
-              <Text style={[styles.commentTime, { color: theme.colors.text.tertiary }]}>
+              <Text style={[styles.commentTime, { color: colors.text.tertiary }]}>
                 {formatTime(item.created_at)}
               </Text>
             </View>
@@ -199,11 +180,11 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
               style={styles.deleteButton}
               onPress={() => handleDeleteComment(item.id)}
             >
-              <Trash2 size={16} color={theme.colors.status.error} />
+              <Trash2 size={16} color={colors.status.error} />
             </TouchableOpacity>
           )}
         </View>
-        <Text style={[styles.commentText, { color: theme.colors.text.secondary }]}>
+        <Text style={[styles.commentText, { color: colors.text.secondary }]}>
           {item.text}
         </Text>
       </View>
@@ -213,7 +194,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
   // Render empty state
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={[styles.emptyText, { color: theme.colors.text.tertiary }]}>
+      <Text style={[styles.emptyText, { color: colors.text.tertiary }]}>
         No comments yet. Be the first to comment!
       </Text>
     </View>
@@ -227,16 +208,16 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: theme.colors.neural.background }]}
+        style={[styles.container, { backgroundColor: colors.neural.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.glass.border }]}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+        <View style={[styles.header, { borderBottomColor: colors.glass.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
             Comments ({comments.length})
           </Text>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <X size={24} color={theme.colors.text.primary} />
+            <X size={24} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
 
@@ -257,20 +238,20 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
         {/* Loading indicator */}
         {loading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.neural.primary} />
+            <ActivityIndicator size="large" color={colors.neural.primary} />
           </View>
         )}
 
         {/* Comment Input */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.colors.glass.primary }]}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.glass.primary }]}>
           <TextInput
             ref={inputRef}
             style={[styles.input, { 
-              color: theme.colors.text.primary,
-              backgroundColor: theme.colors.glass.secondary,
+              color: colors.text.primary,
+              backgroundColor: colors.glass.secondary,
             }]}
             placeholder="Add a comment..."
-            placeholderTextColor={theme.colors.text.tertiary}
+            placeholderTextColor={colors.text.tertiary}
             value={newComment}
             onChangeText={setNewComment}
             multiline
@@ -280,19 +261,19 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
           <TouchableOpacity
             style={[
               styles.sendButton,
-              {
-                backgroundColor: newComment.trim() && !submitting
-                  ? theme.colors.neural.primary
-                  : theme.colors.glass.secondary,
-              },
+              { 
+                backgroundColor: newComment.trim().length > 0 
+                  ? colors.neural.primary
+                  : colors.glass.secondary,
+              }
             ]}
             onPress={handleAddComment}
-            disabled={!newComment.trim() || submitting}
+            disabled={newComment.trim().length === 0}
           >
             {submitting ? (
-              <ActivityIndicator size={16} color={theme.colors.text.inverse} />
+              <ActivityIndicator size={16} color={colors.text.inverse} />
             ) : (
-              <Send size={16} color={theme.colors.text.inverse} />
+              <Send size={16} color={colors.text.inverse} />
             )}
           </TouchableOpacity>
         </View>

@@ -17,7 +17,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   children,
   threshold = 80,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const translateY = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0)).current;
@@ -125,7 +125,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
             ]}
           >
             <LinearGradient
-              colors={theme.colors.gradients.neural as [string, string]}
+              colors={colors.gradients.primary as [string, string]}
               style={styles.indicatorGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}

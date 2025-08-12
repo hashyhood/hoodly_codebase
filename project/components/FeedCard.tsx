@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, MessageCircle, Share } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -108,7 +108,7 @@ export function FeedCard({ post }: FeedCardProps) {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton}>
-              <Share size={20} color="#FFFFFF80" />
+              <Share2 size={20} color="#FFFFFF80" />
             </TouchableOpacity>
           </View>
         </BlurView>

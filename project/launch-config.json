@@ -1,0 +1,78 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Hoodly (Development)",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "target": "device",
+      "program": "${workspaceFolder}/project/App.tsx",
+      "outDir": "${workspaceFolder}/project/.vscode/.react",
+      "sourceMaps": true,
+      "enableDebug": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "your-supabase-url",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "your-supabase-anon-key",
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "name": "Launch Hoodly (iOS)",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "ios",
+      "target": "device",
+      "program": "${workspaceFolder}/project/App.tsx",
+      "outDir": "${workspaceFolder}/project/.vscode/.react",
+      "sourceMaps": true,
+      "enableDebug": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "your-supabase-url",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "your-supabase-anon-key",
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "name": "Launch Hoodly (Production)",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "target": "device",
+      "program": "${workspaceFolder}/project/App.tsx",
+      "outDir": "${workspaceFolder}/project/.vscode/.react",
+      "sourceMaps": false,
+      "enableDebug": false,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "your-supabase-url",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "your-supabase-anon-key",
+        "NODE_ENV": "production"
+      }
+    },
+    {
+      "name": "Attach to Hoodly",
+      "type": "reactnative",
+      "request": "attach",
+      "platform": "android",
+      "sourceMaps": true,
+      "outDir": "${workspaceFolder}/project/.vscode/.react"
+    },
+    {
+      "name": "Attach to Hoodly (iOS)",
+      "type": "reactnative",
+      "request": "attach",
+      "platform": "ios",
+      "sourceMaps": true,
+      "outDir": "${workspaceFolder}/project/.vscode/.react"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch Hoodly (Android + iOS)",
+      "configurations": [
+        "Launch Hoodly (Development)",
+        "Launch Hoodly (iOS)"
+      ]
+    }
+  ]
+} 

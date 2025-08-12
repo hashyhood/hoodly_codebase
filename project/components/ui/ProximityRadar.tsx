@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Users, Wifi, WifiOff, Settings } from 'lucide-react-native';
+import { MapPin, Users, Wifi, Settings } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -42,7 +42,7 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
   refreshInterval = 30, // 30 seconds default
   onUserSelect,
 }) => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
@@ -144,35 +144,37 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
 
   // Scan for nearby users
   const scanForNearbyUsers = async () => {
-    if (!currentLocation || !user) return;
+    if (!currentLocation) return;
 
     try {
       setIsScanning(true);
 
-      // Get all users with recent location updates
-      const { data: userLocations, error } = await supabase
+      const { data: locations, error } = await supabase
         .from('user_locations')
         .select(`
           user_id,
           latitude,
           longitude,
           updated_at,
-          profiles:profiles!user_locations_user_id_fkey(
-            id,
+          profiles (
             full_name,
             avatar_url,
             bio,
-            last_seen
+            last_seen,
+            interests
           )
         `)
-        .gte('updated_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Last 5 minutes
-        .neq('user_id', user.id);
+        .not('user_id', 'eq', user?.id)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching nearby users:', error);
+        return;
+      }
 
-      // Calculate distances and filter nearby users
-      const nearby = userLocations
-        ?.map((location: any) => {
+      const nearby = locations
+        ?.map((location) => {
           const distance = calculateDistance(
             currentLocation.coords.latitude,
             currentLocation.coords.longitude,
@@ -180,15 +182,18 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
             location.longitude
           );
 
+          // Handle profiles as an array and get the first item
+          const profile = Array.isArray(location.profiles) ? location.profiles[0] : location.profiles;
+
           return {
             id: location.user_id,
-            full_name: location.profiles?.full_name || 'Unknown User',
-            avatar_url: location.profiles?.avatar_url,
+            full_name: profile?.full_name || 'Unknown User',
+            avatar_url: profile?.avatar_url || null,
             distance,
-            last_seen: location.profiles?.last_seen || location.updated_at,
+            last_seen: profile?.last_seen || location.updated_at,
             is_online: new Date(location.updated_at).getTime() > Date.now() - 2 * 60 * 1000, // Online if updated in last 2 minutes
-            interests: [], // TODO: Add interests from user profile
-            bio: location.profiles?.bio,
+            interests: profile?.interests || [], // Fetch interests from user profile
+            bio: profile?.bio || null,
           };
         })
         .filter((user) => user.distance <= maxDistance)
@@ -225,9 +230,32 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
   };
 
   // Toggle online status
-  const toggleOnlineStatus = () => {
-    setIsOnline(!isOnline);
-    // TODO: Update online status in database
+  const toggleOnlineStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const newStatus = !isOnline;
+      setIsOnline(newStatus);
+      
+      // Update online status in database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_online: newStatus,
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', user.id);
+      
+      if (error) {
+        console.error('Error updating online status:', error);
+        // Revert local state if database update failed
+        setIsOnline(!newStatus);
+      }
+    } catch (error) {
+      console.error('Error updating online status:', error);
+      // Revert local state if update failed
+      setIsOnline(!isOnline);
+    }
   };
 
   // Initialize
@@ -302,7 +330,7 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
           height: radius * 2,
           borderRadius: radius,
           borderWidth: 2,
-          borderColor: theme.colors.neural.primary + opacity.toString(16).padStart(2, '0'),
+          borderColor: colors.neural.primary + opacity.toString(16).padStart(2, '0'),
           transform: [
             {
               scale: radarAnimation.interpolate({
@@ -323,7 +351,7 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
   const renderUserCard = (nearbyUser: NearbyUser) => (
     <TouchableOpacity
       key={nearbyUser.id}
-      style={[styles.userCard, { backgroundColor: theme.colors.glass.primary }]}
+      style={[styles.userCard, { backgroundColor: colors.glass.primary }]}
       onPress={() => onUserSelect?.(nearbyUser)}
     >
       <View style={styles.userInfo}>
@@ -334,20 +362,20 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
           <View
             style={[
               styles.onlineIndicator,
-              { backgroundColor: nearbyUser.is_online ? theme.colors.status.success : theme.colors.status.error },
+              { backgroundColor: nearbyUser.is_online ? colors.status.success : colors.status.error },
             ]}
           />
         </View>
         
         <View style={styles.userDetails}>
-          <Text style={[styles.userName, { color: theme.colors.text.primary }]}>
+          <Text style={[styles.userName, { color: colors.text.primary }]}>
             {nearbyUser.full_name}
           </Text>
-          <Text style={[styles.userDistance, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.userDistance, { color: colors.text.secondary }]}>
             {formatDistance(nearbyUser.distance)} away
           </Text>
           {nearbyUser.bio && (
-            <Text style={[styles.userBio, { color: theme.colors.text.tertiary }]} numberOfLines={1}>
+            <Text style={[styles.userBio, { color: colors.text.tertiary }]} numberOfLines={1}>
               {nearbyUser.bio}
             </Text>
           )}
@@ -381,7 +409,7 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
             ]}
           >
             <LinearGradient
-              colors={theme.colors.gradients.neural as [string, string]}
+              colors={colors.gradients.primary as [string, string]}
               style={styles.scanGradient}
             />
           </Animated.View>
@@ -398,7 +426,7 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
               },
             ]}
           >
-            <View style={[styles.pulseCircle, { backgroundColor: theme.colors.neural.primary }]} />
+            <View style={[styles.pulseCircle, { backgroundColor: colors.neural.primary }]} />
           </Animated.View>
         </View>
         
@@ -409,41 +437,41 @@ export const ProximityRadar: React.FC<ProximityRadarProps> = ({
       </View>
 
       {/* Status Bar */}
-      <View style={[styles.statusBar, { backgroundColor: theme.colors.glass.overlay }]}>
+      <View style={[styles.statusBar, { backgroundColor: colors.glass.overlay }]}>
         <View style={styles.statusInfo}>
           <TouchableOpacity
-            style={[styles.statusIndicator, { backgroundColor: isOnline ? theme.colors.status.success : theme.colors.status.error }]}
+            style={[styles.statusIndicator, { backgroundColor: isOnline ? colors.status.success : colors.status.error }]}
             onPress={toggleOnlineStatus}
           >
-            {isOnline ? <Wifi size={16} color="white" /> : <WifiOff size={16} color="white" />}
+            {isOnline ? <Wifi size={16} color="white" /> : <Wifi size={16} color="gray" />}
           </TouchableOpacity>
-          <Text style={[styles.statusText, { color: theme.colors.text.secondary }]}>
+          <Text style={[styles.statusText, { color: colors.text.secondary }]}>
             {isOnline ? 'Online' : 'Offline'}
           </Text>
         </View>
         
         <View style={styles.statusInfo}>
-          <MapPin size={16} color={theme.colors.text.secondary} />
-          <Text style={[styles.statusText, { color: theme.colors.text.secondary }]}>
+          <MapPin size={16} color={colors.text.secondary} />
+          <Text style={[styles.statusText, { color: colors.text.secondary }]}>
             {nearbyUsers.length} nearby
           </Text>
         </View>
         
         <TouchableOpacity style={styles.settingsButton}>
-          <Settings size={16} color={theme.colors.text.secondary} />
+          <Settings size={16} color={colors.text.secondary} />
         </TouchableOpacity>
       </View>
 
       {/* Nearby Users */}
       <View style={styles.usersContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
           Nearby Users
         </Text>
         
         {nearbyUsers.length === 0 ? (
           <View style={styles.emptyState}>
-            <Users size={48} color={theme.colors.text.tertiary} />
-            <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+            <Users size={48} color={colors.text.tertiary} />
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
               {isScanning ? 'Scanning for nearby users...' : 'No users found nearby'}
             </Text>
           </View>
