@@ -1,1 +1,6 @@
 [33m6f47064[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Initial commit
+[33ma621df8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix all realtime wildcard events: replace '*' with 'INSERT' for security and performance
+[33mf3f3a22[m Fix notifications mark all read bug and improve realtime hooks: remove wildcards, add DM subscription
+[33m7f99505[m Fix feed query: remove likes/comments count and correct profiles join
+[33m63600eb[m Complete codebase update: security fixes, API improvements, pagination, realtime scoping, and image validation
+[33m746ea64[m  Scope realtime subscriptions for security and performance

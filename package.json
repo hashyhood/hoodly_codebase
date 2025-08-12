@@ -1,5 +1,8 @@
 {
   "scripts": {
+    "type-check": "tsc --noEmit",
+    "lint": "eslint \"project/**/*.{ts,tsx}\"",
+    "test": "jest -w 1 --passWithNoTests",
     "start": "EXPO_ROUTER_APP_ROOT=project/app expo start --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -33,6 +36,9 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-native": "^5.0.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.36.0"
+    "typescript-eslint": "^8.36.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.1.2"
   }
 }

@@ -723,9 +723,26 @@ export const uploadFile = async (file: File, bucket: string, path: string) => {
   return data;
 };
 
+/**
+ * @deprecated Use createSignedUrl instead for secure file access
+ * This function uses public URLs which may expose files to unauthorized access
+ */
 export const getFileUrl = (bucket: string, path: string) => {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
+};
+
+/**
+ * Create a signed URL for secure file access
+ * @param bucket - Storage bucket name
+ * @param path - File path within the bucket
+ * @param expiresIn - Expiration time in seconds (default: 3600 = 1 hour)
+ * @returns Promise<string> - Signed URL for secure file access
+ */
+export const createSignedUrl = async (bucket: string, path: string, expiresIn: number = 3600): Promise<string> => {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data.signedUrl;
 };
 
 // Realtime subscriptions

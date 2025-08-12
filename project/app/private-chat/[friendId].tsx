@@ -81,10 +81,10 @@ export default function PrivateChatScreen() {
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
-            table: 'private_messages',
-            filter: `sender_id=eq.${user.id},receiver_id=eq.${friendId} OR sender_id=eq.${friendId},receiver_id=eq.${user.id}`,
+            table: 'dm_messages',
+            filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id}))`,
           },
           (payload) => {
             const newMessage = payload.new as PrivateMessage;
@@ -100,7 +100,7 @@ export default function PrivateChatScreen() {
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'private_messages',
+          table: 'dm_messages',
           filter: `id=eq.${friendId}`,
         }, (payload) => {
           const updatedMessage = payload.new as PrivateMessage;

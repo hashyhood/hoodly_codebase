@@ -999,22 +999,25 @@ export const privateMessagesApi = {
         return { data: null, error: 'Not authenticated', success: false };
       }
 
+      const { data: threadId, error: rpcErr } = await supabase.rpc('get_or_create_thread', { a: user.id, b: receiverId });
+      if (rpcErr) throw rpcErr;
+
       const { data, error } = await supabase
-        .from('private_messages')
+        .from('dm_messages')
         .insert({
+          thread_id: threadId,
           sender_id: user.id,
           receiver_id: receiverId,
           content,
           message_type: 'text',
-          is_read: false,
         })
         .select(`
           *,
-          sender:profiles!private_messages_sender_id_fkey(
+          sender:profiles!dm_messages_sender_id_fkey(
             full_name,
             avatar_url
           ),
-          receiver:profiles!private_messages_receiver_id_fkey(
+          receiver:profiles!dm_messages_receiver_id_fkey(
             full_name,
             avatar_url
           )
