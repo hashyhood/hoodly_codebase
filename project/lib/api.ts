@@ -56,12 +56,10 @@ export const postsApi = {
         .from('posts')
         .select(`
           *,
-          profiles (
+          profiles!posts_user_id_fkey (
             full_name,
             avatar_url
-          ),
-          comments (count),
-          likes (count)
+          )
         `)
         .eq('proximity', proximity)
         .order('created_at', { ascending: false });
