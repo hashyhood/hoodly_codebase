@@ -410,8 +410,9 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
 
--- Grant necessary permissions
+-- Grant necessary permissions (SECURED)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;

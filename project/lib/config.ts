@@ -2,8 +2,8 @@
 export const CONFIG = {
   // Supabase Configuration
   SUPABASE: {
-    URL: 'https://ikeocbgjivpifvwzllkm.supabase.co',
-    ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZW9jYmdqaXZwaWZ2d3psbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMzkwMDMsImV4cCI6MjA2NzkxNTAwM30.qUuQhufz_ddMI0c__i7SovJZVU74TXQc1OPOV99aRl0',
+    URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
+    ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
   },
   
   // API Configuration - Using Supabase directly
@@ -11,12 +11,12 @@ export const CONFIG = {
     // Development
     DEV: {
       SOCKET_URL: null, // Disabled since we use Supabase Realtime
-      API_URL: 'https://ikeocbgjivpifvwzllkm.supabase.co',
+      API_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
     },
     // Production
     PROD: {
       SOCKET_URL: null, // Disabled since we use Supabase Realtime
-      API_URL: 'https://ikeocbgjivpifvwzllkm.supabase.co',
+      API_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
     }
   },
   
@@ -95,5 +95,5 @@ export const getApiUrl = () => {
 };
 
 // Supabase configuration
-export const supabaseUrl = CONFIG.SUPABASE.URL;
-export const supabaseAnonKey = CONFIG.SUPABASE.ANON_KEY; 
+export const supabaseUrl = CONFIG.SUPABASE.URL!;
+export const supabaseAnonKey = CONFIG.SUPABASE.ANON_KEY!; 
