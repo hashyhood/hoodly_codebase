@@ -201,7 +201,7 @@ export const postsApi = {
     return supabase
       .channel('posts')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'posts'
       }, callback)
@@ -213,7 +213,7 @@ export const postsApi = {
     return supabase
       .channel('comments')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'comments'
       }, callback)
@@ -392,7 +392,7 @@ export const roomsApi = {
     return supabase
       .channel('rooms')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'rooms'
       }, callback)
@@ -462,7 +462,7 @@ export const messagesApi = {
     return supabase
       .channel(`messages:${roomId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'messages',
         filter: `room_id=eq.${roomId}`
@@ -1058,7 +1058,7 @@ export const privateMessagesApi = {
     return supabase
       .channel(`private_messages:${userId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'private_messages',
         filter: `or(sender_id.eq.${userId},receiver_id.eq.${userId})`

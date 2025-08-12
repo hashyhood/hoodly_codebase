@@ -53,7 +53,7 @@ export const useToast = () => {
 };
 
 // Hook for managing real-time subscriptions (generic) - DEPRECATED: Use scoped hooks instead
-export const useRealtimeSubscription = (channel: string, event: string, callback: (payload: any) => void) => {
+export const useRealtimeSubscription = (channel: string, table: string, event: string, callback: (payload: any) => void) => {
   const { user } = useAuth();
   const subscriptionRef = useRef<any>(null);
 
@@ -64,7 +64,8 @@ export const useRealtimeSubscription = (channel: string, event: string, callback
       .channel(channel)
       .on('postgres_changes', { 
         event: event as 'INSERT' | 'UPDATE' | 'DELETE', 
-        schema: 'public' 
+        schema: 'public',
+        table
       }, callback)
       .subscribe();
 
@@ -75,7 +76,7 @@ export const useRealtimeSubscription = (channel: string, event: string, callback
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [user, channel, event, callback]);
+  }, [user, channel, table, event, callback]);
 
   return subscriptionRef.current;
 };

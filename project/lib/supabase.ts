@@ -732,20 +732,20 @@ export const getFileUrl = (bucket: string, path: string) => {
 export const subscribeToPosts = (callback: (payload: any) => void) => {
   return supabase
     .channel('posts')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, callback)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, callback)
     .subscribe();
 };
 
 export const subscribeToMessages = (roomId: string, callback: (payload: any) => void) => {
   return supabase
     .channel(`messages:${roomId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, callback)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, callback)
     .subscribe();
 };
 
 export const subscribeToNotifications = (userId: string, callback: (payload: any) => void) => {
   return supabase
     .channel(`notifications:${userId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` }, callback)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${userId}` }, callback)
     .subscribe();
 }; 
