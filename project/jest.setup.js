@@ -1,4 +1,4 @@
-// Jest setup file for React Native/Expo
+// Jest setup file for React Native/Expo testing
 import 'react-native-gesture-handler/jestSetup';
 
 // Mock Expo modules
@@ -9,11 +9,7 @@ jest.mock('expo-router', () => ({
     back: jest.fn(),
   }),
   useLocalSearchParams: () => ({}),
-  router: {
-    push: jest.fn(),
-    replace: jest.fn(),
-    back: jest.fn(),
-  },
+  useGlobalSearchParams: () => ({}),
 }));
 
 jest.mock('expo-location', () => ({
@@ -22,15 +18,15 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-notifications', () => ({
-  requestPermissionsAsync: jest.fn(),
   getExpoPushTokenAsync: jest.fn(),
+  setNotificationHandler: jest.fn(),
 }));
 
 jest.mock('expo-camera', () => ({
-  Camera: {
-    Constants: {
-      Type: { back: 'back', front: 'front' },
-    },
+  Camera: 'Camera',
+  CameraType: {
+    front: 'front',
+    back: 'back',
   },
 }));
 
@@ -39,40 +35,47 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-// Mock Supabase
-jest.mock('./lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getUser: jest.fn(),
-      getSession: jest.fn(),
-    },
-    from: jest.fn(() => ({
-      select: jest.fn(),
-      insert: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    })),
-    storage: {
-      from: jest.fn(() => ({
-        upload: jest.fn(),
-        getPublicUrl: jest.fn(),
-        createSignedUrl: jest.fn(),
-      })),
-    },
-    channel: jest.fn(() => ({
-      on: jest.fn(),
-      subscribe: jest.fn(),
-    })),
-  },
+// Mock react-native-maps
+jest.mock('react-native-maps', () => 'MapView');
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+  Reanimated.default.call = () => {};
+  return Reanimated;
+});
+
+// Mock react-native-gesture-handler
+jest.mock('react-native-gesture-handler', () => {});
+
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
-// Global test utilities
-global.console = {
-  ...console,
-  // Uncomment to ignore console.log in tests
-  // log: jest.fn(),
-  // debug: jest.fn(),
-  // info: jest.fn(),
-  // warn: jest.fn(),
-  // error: jest.fn(),
-};
+// Mock react-native-screens
+jest.mock('react-native-screens', () => ({
+  enableScreens: jest.fn(),
+}));
+
+// Global test setup
+global.__DEV__ = true;
+
+// Suppress console warnings in tests
+const originalWarn = console.warn;
+beforeAll(() => {
+  console.warn = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Warning: ReactDOM.render is no longer supported')
+    ) {
+      return;
+    }
+    originalWarn.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.warn = originalWarn;
+});
