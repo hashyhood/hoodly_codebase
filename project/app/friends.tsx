@@ -18,7 +18,7 @@ import { getColor, getSpacing, getRadius, theme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getApiUrl } from '../lib/config';
-import { friendsApi } from '../lib/api';
+import { friendsApi, locationShareApi } from '../lib/api';
 
 interface Friend {
   id: string;
@@ -40,6 +40,8 @@ export default function FriendsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [processingUnfriend, setProcessingUnfriend] = useState<string | null>(null);
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
+  const [locationShares, setLocationShares] = useState<Set<string>>(new Set());
+  const [processingLocationShare, setProcessingLocationShare] = useState<string | null>(null);
 
   const loadFriends = async () => {
     try {
@@ -75,6 +77,43 @@ export default function FriendsScreen() {
   useEffect(() => {
     loadFriends();
   }, []);
+
+  const handleLocationShare = async (friendId: string) => {
+    if (!user) return;
+    
+    setProcessingLocationShare(friendId);
+    
+    try {
+      if (locationShares.has(friendId)) {
+        // Stop sharing
+        const result = await locationShareApi.stopSharing(friendId);
+        if (result.success) {
+          setLocationShares(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(friendId);
+            return newSet;
+          });
+          Alert.alert('Location Sharing Stopped', 'Your location is no longer shared with this friend.');
+        } else {
+          Alert.alert('Error', result.error || 'Failed to stop location sharing');
+        }
+      } else {
+        // Start sharing
+        const result = await locationShareApi.shareWith(friendId, 2); // 2 hours
+        if (result.success) {
+          setLocationShares(prev => new Set([...prev, friendId]));
+          Alert.alert('Location Shared!', 'Your location is now shared with this friend for 2 hours.');
+        } else {
+          Alert.alert('Error', result.error || 'Failed to share location');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling location share:', error);
+      Alert.alert('Error', 'Failed to update location sharing');
+    } finally {
+      setProcessingLocationShare(null);
+    }
+  };
 
   const handleFollowToggle = async (friendId: string, currentStatus: string) => {
     if (!user) return;
@@ -304,20 +343,49 @@ export default function FriendsScreen() {
         </TouchableOpacity>
         
         {item.followStatus === 'following' && (
-          <TouchableOpacity
-            style={[styles.unfriendButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
-            onPress={() => handleUnfriend(item.id, item.personalName)}
-            disabled={processingUnfriend === item.id}
-          >
-            {processingUnfriend === item.id ? (
-              <ActivityIndicator size="small" color={getColor('textSecondary')} />
-            ) : (
-              <>
-                <Ionicons name="person-remove" size={16} color={getColor('textSecondary')} />
-                <Text style={[styles.unfriendText, { color: getColor('textSecondary') }]}>Remove</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[
+                styles.locationShareButton, 
+                { 
+                  backgroundColor: locationShares.has(item.id) ? getColor('warning') : getColor('success'),
+                  borderColor: getColor('divider') 
+                }
+              ]}
+              onPress={() => handleLocationShare(item.id)}
+              disabled={processingLocationShare === item.id}
+            >
+              {processingLocationShare === item.id ? (
+                <ActivityIndicator size="small" color={getColor('textPrimary')} />
+              ) : (
+                <>
+                  <Ionicons 
+                    name={locationShares.has(item.id) ? "location-off" : "location"} 
+                    size={16} 
+                    color={getColor('textPrimary')} 
+                  />
+                  <Text style={[styles.locationShareText, { color: getColor('textPrimary') }]}>
+                    {locationShares.has(item.id) ? 'Stop Sharing' : 'Share Location'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.unfriendButton, { backgroundColor: getColor('surface'), borderColor: getColor('divider') }]}
+              onPress={() => handleUnfriend(item.id, item.personalName)}
+              disabled={processingUnfriend === item.id}
+            >
+              {processingUnfriend === item.id ? (
+                <ActivityIndicator size="small" color={getColor('textSecondary')} />
+              ) : (
+                <>
+                  <Ionicons name="person-remove" size={16} color={getColor('textSecondary')} />
+                  <Text style={[styles.unfriendText, { color: getColor('textSecondary') }]}>Remove</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -578,6 +646,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   unfriendText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  locationShareButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  locationShareText: {
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,

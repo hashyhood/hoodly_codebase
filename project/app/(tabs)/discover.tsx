@@ -15,6 +15,8 @@ import {
 import { theme, getSpacing, getColor, getRadius } from '../../lib/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { discoveryApi } from '../../lib/api';
+import { useLocationPermission } from '../../hooks/useLocationPermission';
 
 const { width } = Dimensions.get('window');
 
@@ -46,12 +48,17 @@ interface SearchResult {
 export default function DiscoverScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { hasPermission, getCurrentLocation } = useLocationPermission();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [hasData, setHasData] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [trendingPosts, setTrendingPosts] = useState<any[]>([]);
+  const [nearbyEvents, setNearbyEvents] = useState<any[]>([]);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
   useEffect(() => {
     loadDiscoverData();
@@ -63,10 +70,42 @@ export default function DiscoverScreen() {
       // Load initial discover data (stats, features, etc.)
       // For now, we'll just set hasData to true to show the main content
       setHasData(true);
+      
+      // Load trending posts and events if location is available
+      await loadTrendingAndEvents();
     } catch (error) {
       console.error('Error loading discover data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTrendingAndEvents = async () => {
+    if (!hasPermission) return;
+    
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        // Load trending posts
+        setIsLoadingTrending(true);
+        const trendingRes = await discoveryApi.getTrending(location.latitude, location.longitude, 5, 24, 10);
+        if (trendingRes.success && trendingRes.data) {
+          setTrendingPosts(trendingRes.data);
+        }
+        setIsLoadingTrending(false);
+
+        // Load nearby events
+        setIsLoadingEvents(true);
+        const eventsRes = await discoveryApi.getNearbyEvents(location.latitude, location.longitude, 5, 10);
+        if (eventsRes.success && eventsRes.data) {
+          setNearbyEvents(eventsRes.data);
+        }
+        setIsLoadingEvents(false);
+      }
+    } catch (error) {
+      console.error('Error loading trending and events:', error);
+      setIsLoadingTrending(false);
+      setIsLoadingEvents(false);
     }
   };
 
@@ -392,6 +431,76 @@ export default function DiscoverScreen() {
           </Card>
         )}
 
+        {/* Trending Posts Section */}
+        {hasPermission && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🔥 Trending Near You</Text>
+            {isLoadingTrending ? (
+              <View style={styles.loadingSection}>
+                <ActivityIndicator size="small" color={getColor('success')} />
+                <Text style={styles.loadingText}>Loading trending posts...</Text>
+              </View>
+            ) : trendingPosts.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {trendingPosts.map((post) => (
+                  <Card key={post.id} variant="default" style={styles.trendingPostCard}>
+                    <View style={styles.trendingPostContent}>
+                      <Text style={styles.trendingPostTitle} numberOfLines={2}>
+                        {post.content?.substring(0, 100)}...
+                      </Text>
+                      <View style={styles.trendingPostMeta}>
+                        <Text style={styles.trendingPostAuthor}>
+                          {post.user?.full_name || 'Anonymous'}
+                        </Text>
+                        <Text style={styles.trendingPostStats}>
+                          {post.likes_count || 0} likes • {post.comments_count || 0} comments
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.noDataText}>No trending posts nearby</Text>
+            )}
+          </View>
+        )}
+
+        {/* Nearby Events Section */}
+        {hasPermission && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📅 Events Near You</Text>
+            {isLoadingEvents ? (
+              <View style={styles.loadingSection}>
+                <ActivityIndicator size="small" color={getColor('success')} />
+                <Text style={styles.loadingText}>Loading events...</Text>
+              </View>
+            ) : nearbyEvents.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {nearbyEvents.map((event) => (
+                  <Card key={event.id} variant="default" style={styles.eventCard}>
+                    <View style={styles.eventContent}>
+                      <Text style={styles.eventTitle} numberOfLines={2}>
+                        {event.title || 'Untitled Event'}
+                      </Text>
+                      <Text style={styles.eventDescription} numberOfLines={2}>
+                        {event.description || 'No description available'}
+                      </Text>
+                      {event.start_time && (
+                        <Text style={styles.eventTime}>
+                          {new Date(event.start_time).toLocaleDateString()}
+                        </Text>
+                      )}
+                    </View>
+                  </Card>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.noDataText}>No events nearby</Text>
+            )}
+          </View>
+        )}
+
         {/* Features Grid */}
         {discoverFeatures.length > 0 && (
           <View style={styles.featuresSection}>
@@ -678,5 +787,82 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: getColor('textTertiary'),
     textAlign: 'center',
+  },
+  // Trending Posts & Events Styles
+  section: {
+    marginTop: getSpacing('xl'),
+    paddingHorizontal: getSpacing('lg'),
+  },
+  loadingSection: {
+    alignItems: 'center',
+    padding: getSpacing('lg'),
+  },
+  loadingText: {
+    marginTop: getSpacing('sm'),
+    fontSize: 14,
+    color: getColor('textSecondary'),
+  },
+  horizontalScroll: {
+    paddingLeft: 0,
+  },
+  trendingPostCard: {
+    width: 280,
+    marginRight: getSpacing('md'),
+    padding: getSpacing('md'),
+  },
+  trendingPostContent: {
+    flex: 1,
+  },
+  trendingPostTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: getColor('textPrimary'),
+    marginBottom: getSpacing('sm'),
+    lineHeight: 20,
+  },
+  trendingPostMeta: {
+    marginTop: 'auto',
+  },
+  trendingPostAuthor: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: getColor('textSecondary'),
+    marginBottom: getSpacing('xs'),
+  },
+  trendingPostStats: {
+    fontSize: 12,
+    color: getColor('textTertiary'),
+  },
+  eventCard: {
+    width: 280,
+    marginRight: getSpacing('md'),
+    padding: getSpacing('md'),
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: getColor('textPrimary'),
+    marginBottom: getSpacing('sm'),
+    lineHeight: 20,
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: getColor('textSecondary'),
+    marginBottom: getSpacing('sm'),
+    lineHeight: 18,
+  },
+  eventTime: {
+    fontSize: 12,
+    color: getColor('success'),
+    fontWeight: '500',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: getColor('textTertiary'),
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 }); 
