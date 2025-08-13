@@ -97,7 +97,10 @@ CREATE TABLE IF NOT EXISTS public.dm_threads (
   user1_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   user2_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at timestamptz DEFAULT now(),
-  UNIQUE (LEAST(user1_id,user2_id), GREATEST(user1_id,user2_id))
+  UNIQUE (
+    CASE WHEN user1_id < user2_id THEN user1_id ELSE user2_id END,
+    CASE WHEN user1_id < user2_id THEN user2_id ELSE user1_id END
+  )
 );
 
 CREATE TABLE IF NOT EXISTS public.dm_messages (
@@ -137,9 +140,15 @@ CREATE OR REPLACE FUNCTION public.get_or_create_thread(a uuid, b uuid) RETURNS u
 DECLARE t_id uuid;
 BEGIN
   IF a = b THEN RAISE EXCEPTION 'cannot DM yourself'; END IF;
-  SELECT id INTO t_id FROM public.dm_threads WHERE (user1_id = LEAST(a,b) AND user2_id = GREATEST(a,b));
+  SELECT id INTO t_id FROM public.dm_threads WHERE (
+    user1_id = CASE WHEN a < b THEN a ELSE b END 
+    AND user2_id = CASE WHEN a < b THEN b ELSE a END
+  );
   IF t_id IS NULL THEN
-    INSERT INTO public.dm_threads(user1_id,user2_id) VALUES (LEAST(a,b), GREATEST(a,b)) RETURNING id INTO t_id;
+    INSERT INTO public.dm_threads(user1_id,user2_id) VALUES (
+      CASE WHEN a < b THEN a ELSE b END,
+      CASE WHEN a < b THEN b ELSE a END
+    ) RETURNING id INTO t_id;
   END IF;
   RETURN t_id;
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
