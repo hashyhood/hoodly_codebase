@@ -1,0 +1,12 @@
+-- Simple ranked feed v1 (optional; keep for fallback)
+create or replace function public.feed_rank(u uuid, lat double precision, lng double precision, limit_n int default 20, offset_n int default 0)
+returns setof public.posts language sql stable as $$
+  select p.*
+  from public.posts p
+  order by
+    (0.5 * exp(-extract(epoch from (now()-p.created_at))/(60*60*12)))
+  + (0.3 * coalesce((case when p.location is null then 0.4 else 1.0/(1.0 + st_distance(p.location, st_setsrid(st_makepoint(lng,lat),4326)::geography)/1000.0) end),0))
+  + (0.2 * ln(1 + coalesce(p.likes_count,0) + coalesce(p.comments_count,0)))
+  desc, p.created_at desc
+  limit limit_n offset offset_n;
+$$;

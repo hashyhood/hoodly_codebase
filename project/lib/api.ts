@@ -50,7 +50,7 @@ const restApiCall = async (endpoint: string, options: RequestInit = {}) => {
 // Posts API - Using Supabase directly
 export const postsApi = {
   // Get posts by proximity level
-  getPostsByProximity: async (proximity: 'neighborhood' | 'city' | 'state'): Promise<ApiResponse<Post[]>> => {
+  getPostsByProximity: async (proximity: 'neighborhood' | 'city' | 'state', limit = 20, from = 0): Promise<ApiResponse<Post[]>> => {
     try {
       const { data, error } = await supabase
         .from('posts')
@@ -62,7 +62,8 @@ export const postsApi = {
           )
         `)
         .eq('proximity', proximity)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -256,12 +257,35 @@ export const postsApi = {
       return { data: null, error: error?.message || 'Unknown error', success: false };
     }
   },
+
+  // Enhanced personalized feed using feed_rank_v2
+  getPersonalizedFeed: async (lat: number, lng: number, limit = 20, from = 0) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
+
+      const { data, error } = await supabase.rpc('feed_rank_v2', { 
+        u: user.id, 
+        lat, 
+        lng, 
+        limit_n: limit, 
+        offset_n: from 
+      });
+      
+      if (error) throw error;
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      return { data: null, error: error?.message || 'Unknown error', success: false };
+    }
+  },
 };
 
 // Public Rooms API - Using Supabase directly
 export const roomsApi = {
   // Get user's rooms
-  getUserRooms: async (): Promise<ApiResponse<Room[]>> => {
+  getUserRooms: async (limit = 20, from = 0): Promise<ApiResponse<Room[]>> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -273,9 +297,10 @@ export const roomsApi = {
         .select(`
           *,
           creator:profiles!rooms_created_by_fkey(*),
-          room_members!inner(*)
+          room_members(count)
         `)
-        .eq('room_members.user_id', user.id);
+        .eq('room_members.user_id', user.id)
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -306,7 +331,7 @@ export const roomsApi = {
   },
 
   // Get public rooms
-  getPublicRooms: async (): Promise<ApiResponse<Room[]>> => {
+  getPublicRooms: async (limit = 20, from = 0): Promise<ApiResponse<Room[]>> => {
     try {
       const { data, error } = await supabase
         .from('rooms')
@@ -316,7 +341,8 @@ export const roomsApi = {
           room_members(count)
         `)
         .eq('is_private', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -326,7 +352,7 @@ export const roomsApi = {
   },
 
   // Get nearby rooms using simple bounding box around lat/lng
-  getNearbyRooms: async (params: { latitude: number; longitude: number; delta?: number }): Promise<ApiResponse<Room[]>> => {
+  getNearbyRooms: async (params: { latitude: number; longitude: number; delta?: number }, limit = 20, from = 0): Promise<ApiResponse<Room[]>> => {
     const { latitude, longitude, delta = 0.1 } = params; // ~11km at equator; tune as needed
     try {
       const { data, error } = await supabase
@@ -341,7 +367,8 @@ export const roomsApi = {
         .lte('latitude', latitude + delta)
         .gte('longitude', longitude - delta)
         .lte('longitude', longitude + delta)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -622,9 +649,9 @@ export const safetyApi = {
   },
 
   // Get safety alerts in area
-  getSafetyAlerts: async (latitude: number, longitude: number, radius: number = 5000): Promise<ApiResponse<any[]>> => {
+  getSafetyAlerts: async (latitude: number, longitude: number, radius: number = 5000, limit = 20, from = 0): Promise<ApiResponse<any[]>> => {
     try {
-      const response = await restApiCall(`/safety/alerts?lat=${latitude}&lng=${longitude}&radius=${radius}`);
+      const response = await restApiCall(`/safety/alerts?lat=${latitude}&lng=${longitude}&radius=${radius}&limit=${limit}&from=${from}`);
       return response;
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
@@ -745,13 +772,13 @@ export const userApi = {
   },
 
   // Search users
-  searchUsers: async (query: string): Promise<ApiResponse<User[]>> => {
+  searchUsers: async (query: string, limit = 20, from = 0): Promise<ApiResponse<User[]>> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
-        .limit(20);
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -764,7 +791,7 @@ export const userApi = {
 // Friends API - Using Supabase directly
 export const friendsApi = {
   // Get user's friends
-  getFriends: async (): Promise<ApiResponse<Friend[]>> => {
+  getFriends: async (limit = 50, from = 0): Promise<ApiResponse<Friend[]>> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -786,7 +813,8 @@ export const friendsApi = {
             bio
           )
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .range(from, from + limit - 1);
 
       if (friendsError) throw friendsError;
 
@@ -814,7 +842,7 @@ export const friendsApi = {
   },
 
   // Get pending friend requests
-  getPendingRequests: async (): Promise<ApiResponse<FriendRequest[]>> => {
+  getPendingRequests: async (limit = 20, from = 0): Promise<ApiResponse<FriendRequest[]>> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -840,7 +868,8 @@ export const friendsApi = {
         `)
         .eq('to_user_id', user.id)
         .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
 
       if (error) throw error;
       
@@ -1113,4 +1142,98 @@ export const privateMessagesApi = {
 // ============================================================================
 
 // Export the old messagesAPI for backward compatibility
-export const messagesAPI = messagesApi; 
+export const messagesAPI = messagesApi;
+
+// ============================================================================
+// NEW FEATURE PACK APIs (Settings, Discovery, Enhanced Posts)
+// ============================================================================
+
+export const settingsApi = {
+  getSettings: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { data, error } = await supabase.from('user_settings').select('*').eq('user_id', user.id).maybeSingle();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  upsertSettings: async (patch: Partial<{ feed_default: string; notification_prefs: any; location_privacy: any }>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { data, error } = await supabase.from('user_settings').upsert({ user_id: user.id, ...patch }).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  upsertFeedWeights: async (weights: Partial<{ w_freshness:number; w_proximity:number; w_engagement:number; w_follow:number; w_interest:number }>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { data, error } = await supabase.from('feed_preferences').upsert({ user_id: user.id, ...weights }).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  setInterests: async (tags: string[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    // Replace interests
+    const del = await supabase.from('user_interests').delete().eq('user_id', user.id);
+    if (del.error) return { data: null, error: del.error.message, success: false };
+    if (!tags.length) return { data: [], error: null, success: true };
+    const { data, error } = await supabase.from('user_interests')
+      .insert(tags.map(tag => ({ user_id: user.id, tag, weight: 1 })))
+      .select();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+};
+
+export const discoveryApi = {
+  getTrending: async (lat:number, lng:number, radiusKm=5, hours=24, limit=20) => {
+    const { data, error } = await supabase.rpc('trending_posts', { lat, lng, radius_km: radiusKm, hours, limit_n: limit });
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  getFriendSuggestions: async (lat:number, lng:number, limit=20) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { data, error } = await supabase.rpc('suggest_friends', { u: user.id, lat, lng, limit_n: limit });
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  getNearbyEvents: async (lat:number, lng:number, radiusKm=5, limit=20, from=0) => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .filter('location', 'not.is', null)
+      .range(from, from + limit - 1);
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+};
+
+export const locationShareApi = {
+  shareWith: async (friendId: string, hours=2) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const expires = new Date(Date.now()+hours*3600_000).toISOString();
+    const { data, error } = await supabase.from('location_shares')
+      .upsert({ user_id: user.id, shared_with: friendId, is_live: true, expires_at: expires })
+      .select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+  stopSharing: async (friendId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { error } = await supabase.from('location_shares').delete().eq('user_id', user.id).eq('shared_with', friendId);
+    if (error) return { data: null, error: error.message, success: false };
+    return { data: true, error: null, success: true };
+  },
+  getSharesForMe: async (limit = 20, from = 0) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: 'Not authenticated', success: false };
+    const { data, error } = await supabase.from('location_shares').select('*').eq('shared_with', user.id).range(from, from + limit - 1);
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+};
+
+ 

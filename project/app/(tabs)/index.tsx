@@ -16,9 +16,11 @@ import {
   Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocial } from '../../contexts/SocialContext';
-import { postsApi } from '../../lib/api';
+import { postsApi, discoveryApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { logger } from '../../lib/logger';
 import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
@@ -109,6 +111,7 @@ export default function FeedScreen() {
   const [useRankedFeed, setUseRankedFeed] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [defaultFeed, setDefaultFeed] = useState<'ranked'|'recent'|'nearby'|'following'>('ranked');
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostMedia, setNewPostMedia] = useState<string[]>([]);
@@ -173,8 +176,8 @@ export default function FeedScreen() {
           const location = await getCurrentLocation();
           if (location) {
             setUserLocation({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
+              latitude: location.latitude,
+              longitude: location.longitude,
             });
             setUseRankedFeed(true);
           }
@@ -188,6 +191,11 @@ export default function FeedScreen() {
     initializeLocation();
   }, [hasPermission, getCurrentLocation]);
 
+  // Read default feed preference from AsyncStorage
+  useEffect(() => { 
+    AsyncStorage.getItem('HOODLY_FEED_DEFAULT').then(v => v && setDefaultFeed(v as any)); 
+  }, []);
+
   // Load initial feed
   useEffect(() => {
     loadInitialFeed();
@@ -197,16 +205,12 @@ export default function FeedScreen() {
     try {
       let feedRes;
       
-      if (useRankedFeed && userLocation) {
-        // Use ranked feed when location is available
-        feedRes = await postsApi.getRankedFeed(
-          userLocation.latitude,
-          userLocation.longitude,
-          20,
-          0
-        );
+      const usePersonalized = (defaultFeed === 'ranked');
+      if (usePersonalized && userLocation) {
+        feedRes = await postsApi.getPersonalizedFeed(userLocation.latitude, userLocation.longitude, 20, 0);
+      } else if (defaultFeed === 'nearby' && userLocation) {
+        feedRes = await discoveryApi.getTrending(userLocation.latitude, userLocation.longitude, 5, 24, 20);
       } else {
-        // Fall back to regular feed
         feedRes = await postsApi.getFeed(20, 0);
       }
       
@@ -266,16 +270,12 @@ export default function FeedScreen() {
       setPageFrom(0);
       let feedRes;
       
-      if (useRankedFeed && userLocation) {
-        // Use ranked feed when location is available
-        feedRes = await postsApi.getRankedFeed(
-          userLocation.latitude,
-          userLocation.longitude,
-          20,
-          0
-        );
+      const usePersonalized = (defaultFeed === 'ranked');
+      if (usePersonalized && userLocation) {
+        feedRes = await postsApi.getPersonalizedFeed(userLocation.latitude, userLocation.longitude, 20, 0);
+      } else if (defaultFeed === 'nearby' && userLocation) {
+        feedRes = await discoveryApi.getTrending(userLocation.latitude, userLocation.longitude, 5, 24, 20);
       } else {
-        // Fall back to regular feed
         feedRes = await postsApi.getFeed(20, 0);
       }
       
@@ -307,16 +307,12 @@ export default function FeedScreen() {
       const nextFrom = pageFrom + 20;
       let res;
       
-      if (useRankedFeed && userLocation) {
-        // Use ranked feed when location is available
-        res = await postsApi.getRankedFeed(
-          userLocation.latitude,
-          userLocation.longitude,
-          20,
-          nextFrom
-        );
+      const usePersonalized = (defaultFeed === 'ranked');
+      if (usePersonalized && userLocation) {
+        res = await postsApi.getPersonalizedFeed(userLocation.latitude, userLocation.longitude, 20, nextFrom);
+      } else if (defaultFeed === 'nearby' && userLocation) {
+        res = await discoveryApi.getTrending(userLocation.latitude, userLocation.longitude, 5, 24, 20);
       } else {
-        // Fall back to regular feed
         res = await postsApi.getFeed(20, nextFrom);
       }
       
@@ -339,6 +335,26 @@ export default function FeedScreen() {
     } finally {
       setIsLoadingMore(false);
     }
+  };
+
+  const loadMoreWithPrefetch = async () => {
+    // Preload next page for better performance
+    const nextFrom = pageFrom + 20;
+    try {
+      const usePersonalized = (defaultFeed === 'ranked');
+      if (usePersonalized && userLocation) {
+        await postsApi.getPersonalizedFeed(userLocation.latitude, userLocation.longitude, 20, nextFrom);
+      } else if (defaultFeed === 'nearby' && userLocation) {
+        await discoveryApi.getTrending(userLocation.latitude, userLocation.longitude, 5, 24, 20);
+      } else {
+        await postsApi.getFeed(20, nextFrom);
+      }
+    } catch (e) {
+      // Silent prefetch failure
+    }
+    
+    // Then load current page
+    await handleLoadMore();
   };
 
   const handleLike = async (postId: string) => {
@@ -693,7 +709,12 @@ export default function FeedScreen() {
 
           {item.media_urls && item.media_urls.length > 0 && (
             <View style={styles.postMedia}>
-              <Image source={{ uri: item.media_urls[0] }} style={styles.postImage} />
+              <ExpoImage
+                source={{ uri: item.media_urls[0] }}
+                style={styles.postImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
             </View>
           )}
 
@@ -791,12 +812,12 @@ export default function FeedScreen() {
     setLocationError(null);
     
     try {
-      const location = await getCurrentLocation();
-      if (location) {
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
+              const location = await getCurrentLocation();
+        if (location) {
+          setUserLocation({
+            latitude: location.latitude,
+            longitude: location.longitude,
+          });
         setUseRankedFeed(true);
         // Reload feed with new location
         setTimeout(() => {
@@ -992,12 +1013,17 @@ export default function FeedScreen() {
       ) : (
         <FlatList
           data={filteredPosts}
-          renderItem={renderPostItem}
           keyExtractor={(item) => item.id}
+          windowSize={7}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={8}
+          removeClippedSubviews
+          onEndReachedThreshold={0.6}
+          onEndReached={loadMoreWithPrefetch}
+          renderItem={renderPostItem}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
-          onEndReachedThreshold={0.25}
-          onEndReached={handleLoadMore}
           ListEmptyComponent={
             <EmptyState
               icon="add-circle-outline"

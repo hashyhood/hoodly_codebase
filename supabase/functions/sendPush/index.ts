@@ -45,6 +45,29 @@ serve(async (req) => {
       )
     }
 
+    // Fetch user settings and possibly defer
+    const { data: settings } = await supabase.from('user_settings').select('notification_prefs').eq('user_id', receiver_id).maybeSingle();
+
+    function inQuietHours(prefs: any) {
+      try {
+        if (!prefs?.quietHours) return false;
+        const { start, end, timezone } = prefs.quietHours;
+        const now = new Date().toLocaleString('en-US', { timeZone: timezone || 'UTC' });
+        const [h, m] = (new Date(now).toTimeString().slice(0,5)).split(':').map(Number);
+        const cur = h*60+m;
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        const s = sh*60+sm, e = eh*60+em;
+        return s < e ? (cur>=s && cur<=e) : (cur>=s || cur<=e);
+      } catch { return false; }
+    }
+
+    if (inQuietHours(settings?.notification_prefs)) {
+      await supabase.from('analytics_events').insert({ user_id: receiver_id, event: 'push_deferred', props: { title, data }});
+      // Optional: write to a queue table and deliver via scheduled function later
+      return new Response(JSON.stringify({ deferred: true }), { headers: corsHeaders });
+    }
+
     // Get device tokens for the receiver
     const { data: deviceTokens, error: tokenError } = await supabase
       .from('device_tokens')

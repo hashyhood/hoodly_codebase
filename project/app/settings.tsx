@@ -27,6 +27,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSocial } from '../contexts/SocialContext';
 import { analytics } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
+import { FeedPreferencesSection } from '../components/ui/FeedPreferencesSection';
+import { settingsApi } from '../lib/api';
 
 interface SettingItem {
   id: string;
@@ -392,6 +394,43 @@ router.replace('/auth' as any);
         <Settings size={20} color="#6B7280" />
       )}
 
+      {/* Feed Preferences Section */}
+      <View style={styles.categorySection}>
+        <View style={styles.categoryHeader}>
+          <Settings size={20} color="#6B7280" />
+          <Text style={styles.categoryTitle}>Feed Customization</Text>
+        </View>
+        <FeedPreferencesSection />
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.categorySection}>
+        <View style={styles.categoryHeader}>
+          <Bell size={20} color="#6B7280" />
+          <Text style={styles.categoryTitle}>Notifications</Text>
+        </View>
+        <View style={styles.notificationsContent}>
+          <View style={styles.notificationRow}>
+            <Text style={styles.notificationLabel}>Location-based</Text>
+            <Switch 
+              onValueChange={(v) => settingsApi.upsertSettings({ 
+                notification_prefs: { locationBased: v } 
+              })}
+            />
+          </View>
+          <TouchableOpacity 
+            style={styles.quietHoursButton}
+            onPress={() => settingsApi.upsertSettings({ 
+              notification_prefs: { 
+                quietHours: {start:'22:00', end:'07:00', timezone:'Asia/Karachi'} 
+              } 
+            })}
+          >
+            <Text style={styles.quietHoursText}>Set Quiet Hours 22:00–07:00</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Data Settings */}
       {renderCategorySection(
         'data',
@@ -577,6 +616,33 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 14,
     color: '#9CA3AF',
+  },
+  notificationsContent: {
+    padding: 16,
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  notificationLabel: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  quietHoursButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#22d3ee',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  quietHoursText: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

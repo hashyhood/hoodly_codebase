@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { supabase } from './supabase';
 
 interface AnalyticsEvent {
   event: string;
@@ -76,11 +77,30 @@ class Analytics {
     try {
       // Send to analytics service
       await this.sendEvent(analyticsEvent);
+      
+      // DB sink - store in analytics_events table
+      await this.track(event, properties, this.userId || undefined);
+      
       console.log('Analytics event tracked:', event, properties);
     } catch (error) {
       console.error('Failed to track analytics event:', error);
       // Re-queue failed events
       this.queue.push(analyticsEvent);
+    }
+  }
+
+  // DB sink - store analytics events in database
+  async track(event: string, properties?: Record<string, any>, userId?: string): Promise<void> {
+    try {
+      if (!this.isInitialized) await this.initialize();
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('analytics_events').insert({
+        user_id: userId || user?.id || null,
+        event,
+        props: properties || {},
+      });
+    } catch (e) {
+      console.warn('analytics.track failed', e);
     }
   }
 
