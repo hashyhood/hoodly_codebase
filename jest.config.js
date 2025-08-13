@@ -1,6 +1,4 @@
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
   roots: ['<rootDir>/project'],
   testMatch: [
     '**/__tests__/**/*.ts',
@@ -11,18 +9,22 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': 'ts-jest',
   },
-  collectCoverageFrom: [
-    'project/**/*.{ts,tsx}',
-    '!project/**/*.d.ts',
-    '!project/**/node_modules/**',
-  ],
-  moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/project/$1',
-  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   setupFilesAfterEnv: ['<rootDir>/project/jest.setup.js'],
   testTimeout: 10000,
   verbose: true,
-  collectCoverage: false, // Set to true if you want coverage reports
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  collectCoverage: false,
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/project/$1'
+  },
+  testEnvironment: 'node',
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-native|@react-native|expo|@expo|@react-navigation|@react-native-async-storage)/)'
+  ],
+  moduleDirectories: ['node_modules', '<rootDir>/project'],
+  testPathIgnorePatterns: [
+    '<rootDir>/project/app/',
+    '<rootDir>/project/components/',
+    '<rootDir>/project/lib/'
+  ]
 };
