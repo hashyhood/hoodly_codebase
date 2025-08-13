@@ -43,6 +43,9 @@ export default function PrivateChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const subscriptionRef = useRef<any>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,10 +62,12 @@ export default function PrivateChatScreen() {
           setFriend(friendResponse.data as User);
         }
 
-        // Load messages between current user and friend
-        const messagesResponse = await privateMessagesApi.getPrivateMessages(friendId as string);
+        // Load initial messages between current user and friend
+        const messagesResponse = await privateMessagesApi.getPrivateMessages(friendId as string, 50, 0);
         if (messagesResponse.success && messagesResponse.data) {
           setMessages(messagesResponse.data as PrivateMessage[]);
+          // Check if there are more messages to load
+          setHasMoreMessages(messagesResponse.data.length === 50);
         }
       } catch (error) {
         console.error('Error loading chat data:', error);
@@ -101,7 +106,7 @@ export default function PrivateChatScreen() {
           event: 'UPDATE',
           schema: 'public',
           table: 'dm_messages',
-          filter: `id=eq.${friendId}`,
+          filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id}))`,
         }, (payload) => {
           const updatedMessage = payload.new as PrivateMessage;
           setMessages(prev => prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg));
@@ -130,6 +135,33 @@ export default function PrivateChatScreen() {
       };
     }
   }, [friendId, user]);
+
+  // Load more messages for infinite scroll
+  const loadMoreMessages = async () => {
+    if (isLoadingMore || !hasMoreMessages || !friendId || !user) return;
+    
+    try {
+      setIsLoadingMore(true);
+      const nextPage = currentPage + 1;
+      const from = nextPage * 50;
+      
+      const messagesResponse = await privateMessagesApi.getPrivateMessages(friendId, 50, from);
+      if (messagesResponse.success && messagesResponse.data) {
+        const newMessages = messagesResponse.data as PrivateMessage[];
+        if (newMessages.length > 0) {
+          setMessages(prev => [...newMessages, ...prev]); // Prepend older messages
+          setCurrentPage(nextPage);
+          setHasMoreMessages(newMessages.length === 50);
+        } else {
+          setHasMoreMessages(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Typing indicator (simplified for now)
   const handleTyping = () => {
@@ -265,6 +297,19 @@ export default function PrivateChatScreen() {
     );
   };
 
+  const renderLoadingMore = () => {
+    if (!isLoadingMore) return null;
+    
+    return (
+      <View style={styles.loadingMoreContainer}>
+        <ActivityIndicator size="small" color={getColor('textSecondary')} />
+        <Text style={[styles.loadingMoreText, { color: getColor('textSecondary') }]}>
+          Loading more messages...
+        </Text>
+      </View>
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: getColor('bg') }]}> 
@@ -349,11 +394,14 @@ export default function PrivateChatScreen() {
             contentContainerStyle={styles.messagesContainer}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onEndReached={loadMoreMessages}
+            onEndReachedThreshold={0.5}
             ListEmptyComponent={
               <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: getColor('textSecondary') }]}>No messages yet. Start the conversation!</Text>
               </View>
             }
+            ListFooterComponent={renderLoadingMore}
           />
 
           {/* Typing Indicator */}
@@ -626,5 +674,15 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginRight: 4,
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  loadingMoreText: {
+    marginLeft: 8,
+    fontSize: 14,
   },
 }); 

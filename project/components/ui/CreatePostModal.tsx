@@ -109,31 +109,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
         if (error) throw error;
 
-        // Prefer signed URL for security, fallback to public
-        let imageUrl: string;
-        try {
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from('post-images')
-            .createSignedUrl(fileName, 60*60); // 1 hour
-          
-          if (signedUrlError || !signedUrlData?.signedUrl) {
-            // Fallback to public URL if signed URL fails
-            const { data: { publicUrl } } = supabase.storage
-              .from('post-images')
-              .getPublicUrl(fileName);
-            imageUrl = publicUrl;
-          } else {
-            imageUrl = signedUrlData.signedUrl;
-          }
-        } catch (error) {
-          // Fallback to public URL on error
-          const { data: { publicUrl } } = supabase.storage
-            .from('post-images')
-            .getPublicUrl(fileName);
-          imageUrl = publicUrl;
+        // Create signed URL for secure access
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('post-images')
+          .createSignedUrl(fileName, 60*60); // 1 hour
+        
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+          throw new Error('Failed to create signed URL for uploaded image');
         }
-
-        uploadedUrls.push(imageUrl);
+        
+        uploadedUrls.push(signedUrlData.signedUrl);
       }
     } catch (error) {
       console.error('Error uploading images:', error);

@@ -3,6 +3,7 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { router, usePathname } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { registerPushToken } from '../lib/push';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -20,6 +21,11 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       if (pathname === '/auth' || pathname === '/login' || pathname === '/register') {
         router.replace('/(tabs)');
       }
+      
+      // Register push token (best-effort)
+      registerPushToken().catch(error => {
+        console.warn('Failed to register push token:', error);
+      });
     } else {
       // User is not authenticated, redirect to auth
       if (!pathname.startsWith('/auth') && !pathname.startsWith('/login') && !pathname.startsWith('/register')) {

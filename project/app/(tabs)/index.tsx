@@ -1,43 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Alert,
-  RefreshControl,
   FlatList,
-  Dimensions,
-  Platform,
-  Animated,
-  Image,
-  Easing,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  Alert,
+  Modal,
   TextInput,
+  Image,
+  Dimensions,
+  ScrollView,
+  Animated,
   Share,
 } from 'react-native';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocial } from '../../contexts/SocialContext';
-import { supabase } from '../../lib/supabase';
-import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
 import { postsApi } from '../../lib/api';
-import { SkeletonList } from '../../components/ui/SkeletonList';
-import { Button } from '../../components/ui/Button';
+import { supabase } from '../../lib/supabase';
 import { logger } from '../../lib/logger';
 import { getColor, getSpacing, getRadius, theme } from '../../lib/theme';
+import { CreatePostModal } from '../../components/ui/CreatePostModal';
+import { CommentsModal } from '../../components/ui/CommentsModal';
+import { useLocationPermission } from '../../hooks/useLocationPermission';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { SkeletonList } from '../../components/ui/SkeletonList';
+import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { HoodlyLayout } from '../../components/ui/HoodlyLayout';
 import { GradientFAB } from '../../components/ui/GradientFAB';
 import { StoryRing } from '../../components/ui/StoryRing';
 import { GradientBackground } from '../../components/ui/GradientBackground';
 import { Spinner } from '../../components/ui/Spinner';
 import { Card } from '../../components/ui/Card';
+import { Easing } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -96,13 +98,20 @@ export default function FeedScreen() {
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [newPostLocation, setNewPostLocation] = useState('');
+  
+  // Location functionality for ranked feed
+  const { hasPermission, requestPermission, getCurrentLocation } = useLocationPermission();
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [useRankedFeed, setUseRankedFeed] = useState(false);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostMedia, setNewPostMedia] = useState<string[]>([]);
-  const [newPostLocation, setNewPostLocation] = useState('');
   const [newPostVisibility, setNewPostVisibility] = useState<'public' | 'friends' | 'private'>('public');
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [showStoryCreationModal, setShowStoryCreationModal] = useState(false);
@@ -156,6 +165,70 @@ export default function FeedScreen() {
     ).start();
   }, []);
 
+  // Initialize location and set up ranked feed
+  useEffect(() => {
+    const initializeLocation = async () => {
+      if (hasPermission) {
+        try {
+          const location = await getCurrentLocation();
+          if (location) {
+            setUserLocation({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+            setUseRankedFeed(true);
+          }
+        } catch (error) {
+          logger.warn('Failed to get location, falling back to regular feed:', error);
+          setUseRankedFeed(false);
+        }
+      }
+    };
+
+    initializeLocation();
+  }, [hasPermission, getCurrentLocation]);
+
+  // Load initial feed
+  useEffect(() => {
+    loadInitialFeed();
+  }, [useRankedFeed, userLocation]);
+
+  const loadInitialFeed = async () => {
+    try {
+      let feedRes;
+      
+      if (useRankedFeed && userLocation) {
+        // Use ranked feed when location is available
+        feedRes = await postsApi.getRankedFeed(
+          userLocation.latitude,
+          userLocation.longitude,
+          20,
+          0
+        );
+      } else {
+        // Fall back to regular feed
+        feedRes = await postsApi.getFeed(20, 0);
+      }
+      
+      if (feedRes.success && feedRes.data) {
+        setFilteredPosts(feedRes.data as any);
+        setPageFrom(20);
+      }
+    } catch (error) {
+      logger.error('Error loading initial feed:', error);
+      // Fall back to regular feed on error
+      try {
+        const fallbackRes = await postsApi.getFeed(20, 0);
+        if (fallbackRes.success && fallbackRes.data) {
+          setFilteredPosts(fallbackRes.data as any);
+          setPageFrom(20);
+        }
+      } catch (fallbackError) {
+        logger.error('Fallback feed also failed:', fallbackError);
+      }
+    }
+  };
+
   useEffect(() => {
     if (posts) {
       setFilteredPosts(posts);
@@ -191,15 +264,37 @@ export default function FeedScreen() {
     setIsRefreshing(true);
     try {
       setPageFrom(0);
-      const [feedRes] = await Promise.all([
-        postsApi.getFeed(20, 0),
-        refreshStories(),
-      ]);
+      let feedRes;
+      
+      if (useRankedFeed && userLocation) {
+        // Use ranked feed when location is available
+        feedRes = await postsApi.getRankedFeed(
+          userLocation.latitude,
+          userLocation.longitude,
+          20,
+          0
+        );
+      } else {
+        // Fall back to regular feed
+        feedRes = await postsApi.getFeed(20, 0);
+      }
+      
       if (feedRes.success && feedRes.data) {
         setFilteredPosts(feedRes.data as any);
       }
+      
+      await refreshStories();
     } catch (error) {
       logger.error('Error refreshing feed:', error);
+      // Fall back to regular feed on error
+      try {
+        const fallbackRes = await postsApi.getFeed(20, 0);
+        if (fallbackRes.success && fallbackRes.data) {
+          setFilteredPosts(fallbackRes.data as any);
+        }
+      } catch (fallbackError) {
+        logger.error('Fallback refresh also failed:', fallbackError);
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -210,13 +305,37 @@ export default function FeedScreen() {
     try {
       setIsLoadingMore(true);
       const nextFrom = pageFrom + 20;
-      const res = await postsApi.getFeed(20, nextFrom);
+      let res;
+      
+      if (useRankedFeed && userLocation) {
+        // Use ranked feed when location is available
+        res = await postsApi.getRankedFeed(
+          userLocation.latitude,
+          userLocation.longitude,
+          20,
+          nextFrom
+        );
+      } else {
+        // Fall back to regular feed
+        res = await postsApi.getFeed(20, nextFrom);
+      }
+      
       if (res.success && res.data && res.data.length > 0) {
         setFilteredPosts(prev => [...prev, ...(res.data as any)]);
         setPageFrom(nextFrom);
       }
     } catch (e) {
       logger.warn('Load more failed', e);
+      // Fall back to regular feed on error
+      try {
+        const fallbackRes = await postsApi.getFeed(20, pageFrom + 20);
+        if (fallbackRes.success && fallbackRes.data && fallbackRes.data.length > 0) {
+          setFilteredPosts(prev => [...prev, ...(fallbackRes.data as any)]);
+          setPageFrom(pageFrom + 20);
+        }
+      } catch (fallbackError) {
+        logger.error('Fallback load more also failed:', fallbackError);
+      }
     } finally {
       setIsLoadingMore(false);
     }
@@ -234,7 +353,7 @@ export default function FeedScreen() {
         likes_count: Math.max(0, (post.likes_count || 0) + (post.is_liked ? -1 : 1))
       } : post));
 
-      const result = await postsApi.toggleLike(postId, user.id);
+      const result = await postsApi.toggleLike(postId);
       if (!result) {
         // Rollback on error
         setFilteredPosts(prev => prev.map(post => post.id === postId ? {
@@ -638,6 +757,61 @@ export default function FeedScreen() {
     );
   };
 
+  // Handle location permission changes
+  const handleLocationPermissionChange = async () => {
+    if (!hasPermission) {
+      setIsLocationLoading(true);
+      setLocationError(null);
+      
+      try {
+        await requestPermission();
+        // Try to get location after permission is granted
+        setTimeout(() => {
+          updateLocationAndRefresh();
+        }, 500);
+      } catch (error) {
+        setLocationError('Location permission denied. Using chronological feed.');
+        setUseRankedFeed(false);
+      } finally {
+        setIsLocationLoading(false);
+      }
+    } else {
+      // Toggle between ranked and chronological feed
+      setUseRankedFeed(!useRankedFeed);
+      // Reload feed with new setting
+      setTimeout(() => {
+        loadInitialFeed();
+      }, 100);
+    }
+  };
+
+  // Update location and refresh feed when location changes
+  const updateLocationAndRefresh = async () => {
+    setIsLocationLoading(true);
+    setLocationError(null);
+    
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        setUseRankedFeed(true);
+        // Reload feed with new location
+        setTimeout(() => {
+          loadInitialFeed();
+        }, 100);
+      }
+    } catch (error) {
+      logger.warn('Failed to update location:', error);
+      setLocationError('Failed to update location. Please try again.');
+      setUseRankedFeed(false);
+    } finally {
+      setIsLocationLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: getColor('bg') }]}>
@@ -657,6 +831,120 @@ export default function FeedScreen() {
       eventsToday={stories.length}
       showSearch={false}
     >
+      {/* Feed Header */}
+      <View style={styles.feedHeader}>
+        <Text style={[styles.feedTitle, { color: getColor('textPrimary') }]}>
+          Your Feed
+        </Text>
+        
+        {/* Location Toggle */}
+        <View style={styles.locationToggleContainer}>
+          {!hasPermission ? (
+            <TouchableOpacity
+              style={[
+                styles.locationButton, 
+                { backgroundColor: getColor('success') },
+                isLocationLoading && styles.locationButtonDisabled
+              ]}
+              onPress={handleLocationPermissionChange}
+              disabled={isLocationLoading}
+            >
+              {isLocationLoading ? (
+                <Ionicons name="hourglass-outline" size={16} color="white" />
+              ) : (
+                <Ionicons name="location-outline" size={16} color="white" />
+              )}
+              <Text style={styles.locationButtonText}>
+                {isLocationLoading ? 'Requesting...' : 'Enable Location'}
+              </Text>
+            </TouchableOpacity>
+          ) : userLocation && useRankedFeed ? (
+            <View style={styles.locationButtonGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.locationButton, 
+                  { backgroundColor: getColor('navy') },
+                  isLocationLoading && styles.locationButtonDisabled
+                ]}
+                onPress={handleLocationPermissionChange}
+                disabled={isLocationLoading}
+              >
+                <Ionicons name="location" size={16} color="white" />
+                <Text style={styles.locationButtonText}>Ranked Feed</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.locationRefreshButton, 
+                  { backgroundColor: getColor('success') },
+                  isLocationLoading && styles.locationButtonDisabled
+                ]}
+                onPress={updateLocationAndRefresh}
+                disabled={isLocationLoading}
+              >
+                {isLocationLoading ? (
+                  <Ionicons name="hourglass-outline" size={14} color="white" />
+                ) : (
+                  <Ionicons name="refresh" size={14} color="white" />
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.locationButton, 
+                { backgroundColor: getColor('textTertiary') },
+                isLocationLoading && styles.locationButtonDisabled
+              ]}
+              onPress={handleLocationPermissionChange}
+              disabled={isLocationLoading}
+            >
+              <Ionicons name="time-outline" size={16} color="white" />
+              <Text style={styles.locationButtonText}>Chronological</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Feed Status Indicator */}
+      {hasPermission && (
+        <View style={styles.feedStatusContainer}>
+          <View style={styles.feedStatusRow}>
+            <Ionicons 
+              name={useRankedFeed ? "location" : "time-outline"} 
+              size={16} 
+              color={getColor('textSecondary')} 
+            />
+            <Text style={[styles.feedStatusText, { color: getColor('textSecondary') }]}>
+              {useRankedFeed 
+                ? `Showing posts ranked by relevance to your location (${userLocation ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}` : 'Unknown'})`
+                : 'Showing posts in chronological order'
+              }
+            </Text>
+          </View>
+          {useRankedFeed && userLocation && (
+            <Text style={[styles.feedStatusSubtext, { color: getColor('textTertiary') }]}>
+              Posts are ranked by freshness, proximity, and engagement
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Location Error Display */}
+      {locationError && (
+        <View style={styles.locationErrorContainer}>
+          <Ionicons name="warning-outline" size={16} color={getColor('warning')} />
+          <Text style={[styles.locationErrorText, { color: getColor('warning') }]}>
+            {locationError}
+          </Text>
+          <TouchableOpacity
+            style={styles.locationErrorDismiss}
+            onPress={() => setLocationError(null)}
+          >
+            <Ionicons name="close" size={16} color={getColor('warning')} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
         <BlurView intensity={20} style={styles.tabBlurContainer}>
@@ -992,5 +1280,100 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 100,
     fontWeight: '500',
+  },
+  feedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  feedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  locationToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  locationButtonDisabled: {
+    opacity: 0.6,
+  },
+  locationButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  locationButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationRefreshButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  feedStatusContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  feedStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  feedStatusText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  feedStatusSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    marginLeft: 24,
+  },
+  locationErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  locationErrorText: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  locationErrorDismiss: {
+    padding: 5,
   },
 });

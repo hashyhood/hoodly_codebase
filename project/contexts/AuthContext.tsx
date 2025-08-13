@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import type { User, Session } from '@supabase/supabase-js';
+import { removePushToken } from '../lib/push';
+import { setUser as setSentryUser, clearUser, captureError } from '../lib/sentry';
 
 interface Profile {
   id: string;
@@ -62,6 +64,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // If we have a session, fetch the profile
         if (initialSession?.user) {
           await fetchProfile(initialSession.user);
+          // Set Sentry user context for initial session
+          setSentryUser({
+            id: initialSession.user.id,
+            email: initialSession.user.email || undefined,
+            username: initialSession.user.user_metadata?.username || undefined,
+          });
         }
 
         // Set up auth state change listener
@@ -72,8 +80,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (session?.user) {
               await fetchProfile(session.user);
+              // Set Sentry user context
+              setSentryUser({
+                id: session.user.id,
+                email: session.user.email || undefined,
+                username: session.user.user_metadata?.username || undefined,
+              });
             } else {
               setProfile(null);
+              // Clear Sentry user context
+              clearUser();
             }
           }
         );
@@ -85,7 +101,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       } catch (err) {
         console.error('Auth initialization error:', err);
-        setError(err instanceof Error ? err.message : 'Authentication initialization failed');
+        const errorMessage = err instanceof Error ? err.message : 'Authentication initialization failed';
+        setError(errorMessage);
+        if (err instanceof Error) {
+          captureError(err, { context: 'auth_initialization' });
+        } else {
+          captureError(new Error(String(err)), { context: 'auth_initialization' });
+        }
         setLoading(false);
       }
     };
@@ -114,6 +136,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Profile fetch error:', err);
       setError('Failed to fetch profile');
+      if (err instanceof Error) {
+        captureError(err, { context: 'profile_fetch', user_id: user.id });
+      } else {
+        captureError(new Error(String(err)), { context: 'profile_fetch', user_id: user.id });
+      }
     }
   };
 
@@ -133,12 +160,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (createError) {
         console.error('Profile creation error:', createError);
         setError('Failed to create profile');
+        captureError(new Error(createError.message), { context: 'profile_creation', user_id: user.id });
       } else {
         setProfile(newProfile);
       }
     } catch (err) {
       console.error('Profile creation error:', err);
       setError('Failed to create profile');
+      if (err instanceof Error) {
+        captureError(err, { context: 'profile_creation', user_id: user.id });
+      } else {
+        captureError(new Error(String(err)), { context: 'profile_creation', user_id: user.id });
+      }
     }
   };
 
@@ -255,6 +288,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setProfile(null);
         setSession(null);
+        await removePushToken();
+        clearUser();
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Sign out failed';

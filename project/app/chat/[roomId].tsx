@@ -41,22 +41,52 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const subscriptionRef = useRef<any>(null);
 
   // Load messages from Supabase
-  const loadMessages = async () => {
+  const loadMessages = async (page = 0, limit = 50) => {
     try {
-      setIsLoading(true);
-      const response = await messagesAPI.getMessages(roomId as string);
+      if (page === 0) {
+        setIsLoading(true);
+      }
+      
+      const response = await messagesAPI.getMessages(roomId as string, limit, page * limit);
       if (response.success && response.data) {
-        setMessages(response.data as Message[]);
+        const newMessages = response.data as Message[];
+        if (page === 0) {
+          setMessages(newMessages);
+        } else {
+          setMessages(prev => [...newMessages, ...prev]); // Prepend older messages
+        }
+        
+        // Check if there are more messages to load
+        setHasMoreMessages(newMessages.length === limit);
+        setCurrentPage(page);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
       Alert.alert('Error', 'Failed to load messages');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load more messages for infinite scroll
+  const loadMoreMessages = async () => {
+    if (isLoadingMore || !hasMoreMessages || !roomId) return;
+    
+    try {
+      setIsLoadingMore(true);
+      const nextPage = currentPage + 1;
+      await loadMessages(nextPage, 50);
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -161,6 +191,19 @@ export default function ChatScreen() {
   // Helper to determine if the message is from the current user
   const isMyMessage = (message: Message) => message.user_id === user?.id;
 
+  // Render loading indicator for infinite scroll
+  const renderLoadingMore = () => {
+    if (!isLoadingMore) return null;
+    
+    return (
+      <View style={styles.loadingMoreContainer}>
+        <Text style={[styles.loadingMoreText, { color: getColor('textSecondary') }]}>
+          Loading more messages...
+        </Text>
+      </View>
+    );
+  };
+
   // Render a single message bubble
   const renderMessage = ({ item }: { item: Message }) => {
     const isMine = isMyMessage(item);
@@ -234,6 +277,8 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onEndReached={loadMoreMessages}
+            onEndReachedThreshold={0.5}
             contentInsetAdjustmentBehavior="automatic"
             ListEmptyComponent={
               isLoading ? (
@@ -250,6 +295,7 @@ export default function ChatScreen() {
                 </View>
               )
             }
+            ListFooterComponent={renderLoadingMore}
           />
           {/* Scroll-to-bottom FAB */}
           {showScrollToBottom && (
@@ -538,5 +584,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    fontSize: 14,
   },
 });

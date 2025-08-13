@@ -216,6 +216,51 @@ CREATE TABLE IF NOT EXISTS public.safety_alerts (
   location geography(POINT,4326),
   created_at timestamptz DEFAULT now()
 );
+
+-- Ensure the table has the required columns
+DO $$
+BEGIN
+  -- Add user_id if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'safety_alerts' 
+    AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE public.safety_alerts ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+  END IF;
+  
+  -- Add type if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'safety_alerts' 
+    AND column_name = 'type'
+  ) THEN
+    ALTER TABLE public.safety_alerts ADD COLUMN type text;
+  END IF;
+  
+  -- Add message if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'safety_alerts' 
+    AND column_name = 'message'
+  ) THEN
+    ALTER TABLE public.safety_alerts ADD COLUMN message text;
+  END IF;
+  
+  -- Add location if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'safety_alerts' 
+    AND column_name = 'location'
+  ) THEN
+    ALTER TABLE public.safety_alerts ADD COLUMN location geography(POINT,4326);
+  END IF;
+END $$;
+
 ALTER TABLE public.safety_alerts ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist to avoid conflicts
@@ -238,6 +283,87 @@ CREATE TABLE IF NOT EXISTS public.invite_links (
   is_active boolean DEFAULT true,
   metadata jsonb
 );
+
+-- Ensure the table has the required columns
+DO $$
+BEGIN
+  -- Add created_by if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'created_by'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN created_by uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+  END IF;
+  
+  -- Add code if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'code'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN code text;
+  END IF;
+  
+  -- Add type if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'type'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN type text;
+  END IF;
+  
+  -- Add other columns if they don't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'expires_at'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN expires_at timestamptz;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'max_uses'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN max_uses integer;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'current_uses'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN current_uses integer DEFAULT 0;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN is_active boolean DEFAULT true;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invite_links' 
+    AND column_name = 'metadata'
+  ) THEN
+    ALTER TABLE public.invite_links ADD COLUMN metadata jsonb;
+  END IF;
+END $$;
+
 ALTER TABLE public.invite_links ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist to avoid conflicts

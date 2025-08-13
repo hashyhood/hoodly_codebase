@@ -137,19 +137,13 @@ export const postsApi = {
         if (insertError) throw insertError;
       }
 
-      // Recalculate likes_count and update post
+      // Get current like count for UI state (triggers handle the database update)
       const { count, error: countError } = await supabase
         .from('reactions')
         .select('id', { count: 'exact', head: true })
         .eq('target_type', 'post')
         .eq('target_id', postId);
       if (countError) throw countError;
-
-      const { error: updateError } = await supabase
-        .from('posts')
-        .update({ likes_count: count || 0 })
-        .eq('id', postId);
-      if (updateError) throw updateError;
 
       return { liked: !existing };
     } catch (error: any) {
@@ -158,12 +152,13 @@ export const postsApi = {
   },
 
   // Get comments for a post
-  async getComments(postId: string) {
+  async getComments(postId: string, limit = 50, from = 0) {
     return supabase
       .from('comments')
       .select('*')
       .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .range(from ?? 0, (from ?? 0) + (limit ?? 50) - 1);
   },
 
   // Add a comment to a post
@@ -232,6 +227,29 @@ export const postsApi = {
         .order('created_at', { ascending: false })
         .range(from, from + limit - 1);
 
+      if (error) throw error;
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      return { data: null, error: error?.message || 'Unknown error', success: false };
+    }
+  },
+
+  // Ranked feed based on freshness, proximity, and engagement
+  getRankedFeed: async (lat: number, lng: number, limit = 20, from = 0) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: null, error: 'Not authenticated', success: false };
+      }
+
+      const { data, error } = await supabase.rpc('feed_rank', { 
+        u: user.id, 
+        lat, 
+        lng, 
+        limit_n: limit, 
+        offset_n: from 
+      });
+      
       if (error) throw error;
       return { data, error: null, success: true };
     } catch (error: any) {
@@ -403,7 +421,7 @@ export const roomsApi = {
 // Public Messages API - Using Supabase directly
 export const messagesApi = {
   // Get messages for a room
-  getMessages: async (roomId: string): Promise<ApiResponse<Message[]>> => {
+  getMessages: async (roomId: string, limit = 50, from = 0): Promise<ApiResponse<Message[]>> => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -415,7 +433,8 @@ export const messagesApi = {
           )
         `)
         .eq('room_id', roomId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .range(from ?? 0, (from ?? 0) + (limit ?? 50) - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
@@ -473,29 +492,47 @@ export const messagesApi = {
 
 // Notifications API - Using Supabase directly
 export const notificationsApi = {
-  // Create a notification
+  // Create a notification + push
   createNotification: async ({ senderId, receiverId, type, postId, roomId, message }: { 
-    senderId: string, 
-    receiverId: string, 
-    type: string, 
-    postId?: string, 
-    roomId?: string, 
-    message?: string 
+    senderId: string, receiverId: string, type: string, postId?: string, roomId?: string, message?: string 
   }): Promise<ApiResponse<Notification>> => {
     try {
+      // derive a simple title if not provided
+      const title = type === 'message' ? 'New Message' :
+                    type === 'like'    ? 'New Like' :
+                    type === 'comment' ? 'New Comment' :
+                    type === 'follow'  ? 'New Follower' : 'Notification';
+
       const { data: notif, error } = await supabase
         .from('notifications')
         .insert({
           sender_id: senderId,
           receiver_id: receiverId,
           type,
+          title,                // <-- REQUIRED by schema
+          message: message ?? '',
           post_id: postId,
           room_id: roomId,
-          message,
         })
         .select()
         .single();
       if (error) throw error;
+
+      // fire push in background (best-effort)
+      try {
+        await supabase.functions.invoke('sendPush', {
+          body: {
+            receiver_id: receiverId,
+            title,
+            body: message ?? title,
+            data: { type, post_id: postId, room_id: roomId, notification_id: notif.id },
+            priority: type === 'urgent' ? 'high' : 'normal',
+          },
+        });
+      } catch (e) {
+        // non-fatal
+      }
+
       return { data: notif, error: null, success: true };
     } catch (error: any) {
       return { data: null, error: error?.message || 'Unknown error', success: false };
@@ -959,7 +996,7 @@ export const friendsApi = {
 // Private Messages API - Using Supabase for persistence, WebSocket for real-time
 export const privateMessagesApi = {
   // Get private messages between users
-  getPrivateMessages: async (friendId: string): Promise<ApiResponse<PrivateMessage[]>> => {
+  getPrivateMessages: async (friendId: string, limit = 50, from = 0): Promise<ApiResponse<PrivateMessage[]>> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -980,7 +1017,8 @@ export const privateMessagesApi = {
           )
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .range(from ?? 0, (from ?? 0) + (limit ?? 50) - 1);
 
       if (error) throw error;
       return { data, error: null, success: true };
