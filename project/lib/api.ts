@@ -967,14 +967,14 @@ export const privateMessagesApi = {
       }
 
       const { data, error } = await supabase
-        .from('private_messages')
+        .from('dm_messages')
         .select(`
           *,
-          sender:profiles!private_messages_sender_id_fkey(
+          sender:profiles!dm_messages_sender_id_fkey(
             full_name,
             avatar_url
           ),
-          receiver:profiles!private_messages_receiver_id_fkey(
+          receiver:profiles!dm_messages_receiver_id_fkey(
             full_name,
             avatar_url
           )
@@ -1040,7 +1040,7 @@ export const privateMessagesApi = {
       }
 
       const { error } = await supabase
-        .from('private_messages')
+        .from('dm_messages')
         .update({ 
           is_read: true,
           read_at: new Date().toISOString()
@@ -1059,11 +1059,11 @@ export const privateMessagesApi = {
   // Subscribe to real-time private message updates
   subscribeToPrivateMessages: (userId: string, callback: (payload: any) => void) => {
     return supabase
-      .channel(`private_messages:${userId}`)
+      .channel(`dm_messages:${userId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'private_messages',
+        table: 'dm_messages',
         filter: `or(sender_id.eq.${userId},receiver_id.eq.${userId})`
       }, callback)
         .subscribe();

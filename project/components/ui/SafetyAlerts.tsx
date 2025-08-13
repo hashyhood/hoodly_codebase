@@ -340,7 +340,7 @@ export const SafetyAlerts: React.FC<SafetyAlertsProps> = ({
     const subscription = supabase
       .channel('safety_alerts')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'safety_alerts',
       }, (payload) => {

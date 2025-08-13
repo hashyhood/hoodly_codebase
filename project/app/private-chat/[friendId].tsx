@@ -77,7 +77,7 @@ export default function PrivateChatScreen() {
       
       // Subscribe to real-time updates for private messages
       const subscription = supabase
-        .channel(`private_messages:${user.id}:${friendId}`)
+        .channel(`dm_messages:${user.id}:${friendId}`)
         .on(
           'postgres_changes',
           {

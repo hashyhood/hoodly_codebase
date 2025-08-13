@@ -626,57 +626,126 @@ export interface Database {
           sender_id?: string | null;
         };
       };
-      private_messages: {
+      dm_threads: {
         Row: {
           id: string;
-          sender_id: string;
-          content: string;
-          message_type: string | null;
-          file_url: string | null;
-          location_data: any | null;
-          is_read: boolean | null;
-          read_at: string | null;
-          is_edited: boolean | null;
-          edited_at: string | null;
+          user1_id: string;
+          user2_id: string;
           created_at: string | null;
-          updated_at: string | null;
-          media_url: string | null;
-          reply_to_id: string | null;
-          receiver_id: string;
         };
         Insert: {
           id?: string;
-          sender_id: string;
-          content: string;
-          message_type?: string | null;
-          file_url?: string | null;
-          location_data?: any | null;
-          is_read?: boolean | null;
-          read_at?: string | null;
-          is_edited?: boolean | null;
-          edited_at?: string | null;
+          user1_id: string;
+          user2_id: string;
           created_at?: string | null;
-          updated_at?: string | null;
-          media_url?: string | null;
-          reply_to_id?: string | null;
-          receiver_id: string;
         };
         Update: {
           id?: string;
-          sender_id?: string;
-          content?: string;
+          user1_id?: string;
+          user2_id?: string;
+          created_at?: string | null;
+        };
+      };
+      dm_messages: {
+        Row: {
+          id: string;
+          thread_id: string;
+          sender_id: string;
+          receiver_id: string;
+          content: string;
+          message_type: string | null;
+          is_read: boolean | null;
+          metadata: any | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          thread_id: string;
+          sender_id: string;
+          receiver_id: string;
+          content: string;
           message_type?: string | null;
-          file_url?: string | null;
-          location_data?: any | null;
           is_read?: boolean | null;
-          read_at?: string | null;
-          is_edited?: boolean | null;
-          edited_at?: string | null;
+          metadata?: any | null;
           created_at?: string | null;
           updated_at?: string | null;
-          media_url?: string | null;
-          reply_to_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          thread_id?: string;
+          sender_id?: string;
           receiver_id?: string;
+          content?: string;
+          message_type?: string | null;
+          is_read?: boolean | null;
+          metadata?: any | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+      safety_alerts: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: 'emergency' | 'warning' | 'info';
+          message: string;
+          location: any | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: 'emergency' | 'warning' | 'info';
+          message: string;
+          location?: any | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: 'emergency' | 'warning' | 'info';
+          message?: string;
+          location?: any | null;
+          created_at?: string | null;
+        };
+      };
+      invite_links: {
+        Row: {
+          id: string;
+          code: string;
+          type: 'user' | 'group' | 'event';
+          created_by: string;
+          created_at: string | null;
+          expires_at: string | null;
+          max_uses: number | null;
+          current_uses: number | null;
+          is_active: boolean | null;
+          metadata: any | null;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          type: 'user' | 'group' | 'event';
+          created_by: string;
+          created_at?: string | null;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          current_uses?: number | null;
+          is_active?: boolean | null;
+          metadata?: any | null;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          type?: 'user' | 'group' | 'event';
+          created_by?: string;
+          created_at?: string | null;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          current_uses?: number | null;
+          is_active?: boolean | null;
+          metadata?: any | null;
         };
       };
       rooms: {

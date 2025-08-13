@@ -437,7 +437,7 @@ export default function ChatScreen() {
       
       // Get unread message counts for private chats
       const { data: privateMessages, error: privateError } = await supabase
-        .from('private_messages')
+        .from('dm_messages')
         .select('sender_id, receiver_id')
         .eq('receiver_id', user.id)
         .eq('is_read', false);

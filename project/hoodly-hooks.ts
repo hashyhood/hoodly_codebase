@@ -250,7 +250,7 @@ export const useDirectMessagesSubscription = (callback: (payload: any) => void) 
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'private_messages', 
+        table: 'dm_messages', 
         filter: `or(sender_id=eq.${user.id},receiver_id=eq.${user.id})` 
       }, callback)
       .subscribe();

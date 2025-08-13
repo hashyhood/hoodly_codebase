@@ -480,51 +480,126 @@ export interface Database {
           updated_at?: string;
         };
       };
-      private_messages: {
+      dm_threads: {
         Row: {
           id: string;
+          user1_id: string;
+          user2_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user1_id: string;
+          user2_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user1_id?: string;
+          user2_id?: string;
+          created_at?: string;
+        };
+      };
+      dm_messages: {
+        Row: {
+          id: string;
+          thread_id: string;
           sender_id: string;
           receiver_id: string;
           content: string;
-          message_type: 'text' | 'image' | 'file' | 'location';
-          file_url: string | null;
-          location_data: any | null;
+          message_type: 'text' | 'image' | 'video' | 'audio' | 'location';
           is_read: boolean;
-          read_at: string | null;
-          is_edited: boolean;
-          edited_at: string | null;
+          metadata: any | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
+          thread_id: string;
           sender_id: string;
           receiver_id: string;
           content: string;
-          message_type?: 'text' | 'image' | 'file' | 'location';
-          file_url?: string | null;
-          location_data?: any | null;
+          message_type?: 'text' | 'image' | 'video' | 'audio' | 'location';
           is_read?: boolean;
-          read_at?: string | null;
-          is_edited?: boolean;
-          edited_at?: string | null;
+          metadata?: any | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
+          thread_id?: string;
           sender_id?: string;
           receiver_id?: string;
           content?: string;
-          message_type?: 'text' | 'image' | 'file' | 'location';
-          file_url?: string | null;
-          location_data?: any | null;
+          message_type?: 'text' | 'image' | 'video' | 'audio' | 'location';
           is_read?: boolean;
-          read_at?: string | null;
-          is_edited?: boolean;
-          edited_at?: string | null;
+          metadata?: any | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      safety_alerts: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: 'emergency' | 'warning' | 'info';
+          message: string;
+          location: any | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: 'emergency' | 'warning' | 'info';
+          message: string;
+          location?: any | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: 'emergency' | 'warning' | 'info';
+          message?: string;
+          location?: any | null;
+          created_at?: string;
+        };
+      };
+      invite_links: {
+        Row: {
+          id: string;
+          code: string;
+          type: 'user' | 'group' | 'event';
+          created_by: string;
+          created_at: string;
+          expires_at: string | null;
+          max_uses: number | null;
+          current_uses: number | null;
+          is_active: boolean | null;
+          metadata: any | null;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          type: 'user' | 'group' | 'event';
+          created_by: string;
+          created_at?: string;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          current_uses?: number | null;
+          is_active?: boolean | null;
+          metadata?: any | null;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          type?: 'user' | 'group' | 'event';
+          created_by?: string;
+          created_at?: string;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          current_uses?: number | null;
+          is_active?: boolean | null;
+          metadata?: any | null;
         };
       };
       rooms: {
